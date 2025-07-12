@@ -1,5 +1,4 @@
 name: Component-based Docker Build and Push
-
 on:
   push:
     branches:
@@ -7,8 +6,7 @@ on:
 
 jobs:
   build_and_push_components:
-    runs-on: self-hosted
-
+    runs-on: [self-hosted, macOS, ARM64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +29,7 @@ jobs:
               - 'components/data_val/**'
               - 'components/metrics_evaluation/**'
               - 'requirements.txt'
-              train_test_split:
+            train_test_split:
               - 'components/train_test_split/**'
               - 'requirements.txt'
 

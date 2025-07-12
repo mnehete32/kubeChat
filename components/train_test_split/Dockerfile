@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Copy the requirements file into the container
 # This assumes requirements.txt is at the project root
-COPY requirements.txt .
+COPY components/train_test_split/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
