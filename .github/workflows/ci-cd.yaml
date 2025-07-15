@@ -19,6 +19,9 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
+            download_dataset:
+              - 'components/download_dataset/**'
+              - 'requirements.txt'
             eda:
               - 'components/eda/**'
               - 'requirements.txt'
@@ -33,31 +36,38 @@ jobs:
               - 'components/train_test_split/**'
               - 'requirements.txt'
 
+      # --- Data Preparation Component ---
+      - name: Build and Push Download Dataset Docker Image
+        if: steps.filter.outputs.download_dataset == 'true'
+        run: |
+          docker build -f components/download_dataset/Dockerfile -t mlops-download-dataset:${{ github.sha }} .
+          # docker push mlops-download-dataset:${{ github.sha }}
+
       # --- EDA Component ---
       - name: Build and Push EDA Docker Image
         if: steps.filter.outputs.eda == 'true'
         run: |
           docker build -f components/eda/Dockerfile -t mlops-data-pipeline-eda:${{ github.sha }} .
-          docker push mlops-data-pipeline-eda:${{ github.sha }}
+          # docker push mlops-data-pipeline-eda:${{ github.sha }}
 
       # --- Data Preparation Component ---
       - name: Build and Push Data Preparation Docker Image
         if: steps.filter.outputs.data_preparation == 'true'
         run: |
-          docker build -f components/data_preparation/Dockerfile -t mlops-data-pipeline-data-preparation:${{ github.sha }} .
-          docker push mlops-data-pipeline-data-preparation:${{ github.sha }}
+          docker build -f components/data_prep/Dockerfile -t mlops-data-pipeline-data-preparation:${{ github.sha }} .
+          # docker push mlops-data-pipeline-data-preparation:${{ github.sha }}
 
       # --- Data Validation Component ---
-      - name: Build and Push Data Validation Docker Image
-        if: steps.filter.outputs.data_validation == 'true'
-        run: |
-          docker build -f components/data_validation/Dockerfile -t mlops-data-pipeline-data-validation:${{ github.sha }} .
-          docker push mlops-data-pipeline-data-validation:${{ github.sha }}
+      # - name: Build and Push Data Validation Docker Image
+      #   if: steps.filter.outputs.data_validation == 'true'
+      #   run: |
+      #     docker build -f components/data_validation/Dockerfile -t mlops-data-pipeline-data-validation:${{ github.sha }} .
+      #     # docker push mlops-data-pipeline-data-validation:${{ github.sha }}
 
 
       # --- Data Validation Component ---
-      - name: Build and Push Data Validation Docker Image
+      - name: Build and Push Train Test Split Docker Image
         if: steps.filter.outputs.train_test_split == 'true'
         run: |
           docker build -f components/train_test_split/Dockerfile -t mlops-data-pipeline-train-test-split:${{ github.sha }} .
-          docker push mlops-data-pipeline-train-test-split:${{ github.sha }}
+          # docker push mlops-data-pipeline-train-test-split:${{ github.sha }}

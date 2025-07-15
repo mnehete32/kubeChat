@@ -11,28 +11,10 @@ mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 mlflow.set_experiment("kubeChat")
 
 
-def load_data_from_mlflow() -> pd.DataFrame:
+def load_data_from_mlflow(artifact_path: str) -> pd.DataFrame:
     """Load preprocessed data from MLflow run"""
     try:
-        client = mlflow.tracking.MlflowClient()
-        experiment = client.get_experiment_by_name("kubeChat")
-        
-        if not experiment:
-            raise ValueError("Experiment 'kubeChat' not found")
-        
-        runs = client.search_runs(
-            experiment_ids=[experiment.experiment_id],
-            filter_string="tags.mlflow.runName = 'Data_Preparation_Phase'",
-            order_by=["attributes.start_time DESC"],
-            max_results=1
-        )
-        
-        if not runs:
-            raise ValueError("No matching runs found")
-        
-        run = runs[0]
-        artifact_path = f"{run.info.artifact_uri}/processed_data/dataset.parquet"
-        print(f"Loading data from MLflow run: {run.info.run_id}")
+
         local_path = mlflow.artifacts.download_artifacts(artifact_path)
 
         return pd.read_parquet(local_path)
@@ -41,17 +23,13 @@ def load_data_from_mlflow() -> pd.DataFrame:
         print(f"Failed to load from MLflow: {str(e)}")
         raise
 
-def load_local_data(file_path: str = 'dataset.parquet') -> pd.DataFrame:
-    """Load data from local file as fallback"""
-    return pd.read_parquet(file_path)
-
-def get_input_data() -> pd.DataFrame:
+def get_input_data(artifact_path: str) -> pd.DataFrame:
     """Get input data trying MLflow first, then local fallback"""
     try:
-        return load_data_from_mlflow()
+        return load_data_from_mlflow(artifact_path)
     except Exception:
         print("Using local data fallback")
-        return load_local_data()
+        raise
 
 def perform_train_test_split(
     df: pd.DataFrame,
@@ -87,19 +65,22 @@ def perform_train_test_split(
 def save_datasets(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
-    train_path: str = './data/k8s_kubectl_train.parquet',
-    test_path: str = './data/k8s_kubectl_test.parquet'
+    train_dir: str = '/data/',
+    test_dir: str = '/data/',
+    run_name: str = "Train_Test_Split",
+    output_artifact_path: str = "dataset"
 ) -> None:
     """Save datasets to local files"""
+    os.makedirs(os.path.dirname(train_dir), exist_ok=True)
+    os.makedirs(os.path.dirname(test_dir), exist_ok=True)
+    train_filename = "train.parquet"
+    test_filename = "test.parquet"
+    train_path = os.path.join(train_dir, train_filename)
+    test_path = os.path.join(test_dir, test_filename)
     train_df.to_parquet(train_path, index=False)
     test_df.to_parquet(test_path, index=False)
-    print(f"Datasets saved to {train_path} and {test_path}")
+    print(f"Datasets saved to {train_dir} and {test_dir}")
 
-def log_to_mlflow(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    run_name: str = "Train_Test_Split"
-) -> None:
     """Log datasets and parameters to MLflow"""
     with mlflow.start_run(run_name=run_name):
         # Log parameters
@@ -114,33 +95,41 @@ def log_to_mlflow(
             "parent_run": "Data_Preparation_Phase"
         })
         
-        # Save and log artifacts
-        temp_train = "temp_train.parquet"
-        temp_test = "temp_test.parquet"
-        train_df.to_parquet(temp_train, index=False)
-        test_df.to_parquet(temp_test, index=False)
-        
-        mlflow.log_artifact(temp_train)
-        mlflow.log_artifact(temp_test)
+        train_artifact_path = os.path.join(output_artifact_path, train_filename)
+        test_artifact_path = os.path.join(output_artifact_path,test_filename)
+        mlflow.log_artifact(train_path, train_artifact_path)
+        mlflow.log_artifact(test_path, test_artifact_path)
+        train_artifact_uri = mlflow.get_artifact_uri(train_artifact_path)
+        test_artifact_uri = mlflow.get_artifact_uri(test_artifact_path)
+
+        print(f"TRAIN MLflow Artifact URI: {train_artifact_uri}")
+        print(f"TEST MLflow Artifact URI: {test_artifact_uri}")
         print("Datasets logged to MLflow")
 
-def main():
-    """Main workflow function"""
+        with open(args.train_artifact_path, "w") as f:
+            f.write(train_artifact_uri)
+        with open(args.test_artifact_path, "w") as f:
+            f.write(test_artifact_uri)
+        return train_artifact_uri, test_artifact_uri
+        
+
+if __name__ == "__main__":
     print("Starting data splitting process...")
     
+    import argparse
+    parser = argparse.ArgumentParser(description="Prepare data from a CSV file.")
+    parser.add_argument("--input_artifact_path", type=str, required=True, help="Path to the input CSV file.")
+    parser.add_argument("--train_artifact_path", type=str, required=True, help="Path to the input CSV file.")
+    parser.add_argument("--test_artifact_path", type=str, required=True, help="Path to the input CSV file.")
+    args = parser.parse_args()
+
     # Load data
-    data = get_input_data()
+    data = get_input_data(args.input_artifact_path)
     
     # Split data
     train_data, test_data = perform_train_test_split(data)
     
     # Save locally
-    save_datasets(train_data, test_data)
+    train_artifact_uri, test_artifact_uri = save_datasets(train_data, test_data)
+    print("Process completed successfully")    
     
-    # Log to MLflow
-    log_to_mlflow(train_data, test_data)
-    
-    print("Process completed successfully")
-
-if __name__ == "__main__":
-    main()

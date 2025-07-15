@@ -7,7 +7,7 @@ MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080")
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 mlflow.set_experiment("kubeChat")
 
-def prepare_data(input_csv_path, output_parquet_path):
+def prepare_data(input_artifact_path, output_artifact_path):
     """
     Performs data preparation steps:
     - Loads data.
@@ -16,15 +16,14 @@ def prepare_data(input_csv_path, output_parquet_path):
     - Logs processed data as an MLflow artifact.
 
     Args:
-        input_csv_path (str): Path to the input CSV file.
-        output_parquet_path (str): Path to save the processed Parquet file.
+        input_artifact_path (str): Path to the input CSV file.
     """
     with mlflow.start_run(run_name="Data_Preparation_Phase"):
-        mlflow.log_param("input_file", input_csv_path)
-        mlflow.log_param("output_file", output_parquet_path)
+        mlflow.log_param("input_artifact_uri", input_artifact_path)
 
-        print(f"Loading raw data from {input_csv_path}...")
-        df = pd.read_parquet(input_csv_path)
+        print(f"Loading raw data from {input_artifact_path}...")
+        local_path = mlflow.artifacts.download_artifacts(input_artifact_path)
+        df = pd.read_parquet(local_path)
         print("Raw data loaded successfully.")
 
         initial_rows = df.shape[0]
@@ -47,19 +46,26 @@ def prepare_data(input_csv_path, output_parquet_path):
         mlflow.log_param("final_num_columns", df.shape[1])
 
         # Save the processed data as Parquet
-        output_dir = os.path.dirname(output_parquet_path)
+        output_dir = "processed_data/"
         os.makedirs(output_dir, exist_ok=True)
-        df.to_parquet(output_parquet_path, index=False)
-        print(f"Processed data saved to {output_parquet_path}")
-
+        dataset_path = os.path.join(output_dir, "dataset.parquet")
+        df.to_parquet(dataset_path, index=False)
         # Log the processed data as an MLflow artifact
-        mlflow.log_artifact(output_parquet_path, "processed_data")
+        mlflow.log_artifact(dataset_path, output_artifact_path)
         print("Processed data logged as MLflow artifact.")
+
+
+        artifact_uri = mlflow.get_artifact_uri(f"{dataset_path}")
+        print(f"MLflow Artifact URI: {artifact_uri}")
+        with open(args.output_artifact_path, "w") as f:
+                f.write(artifact_uri)
+        print(f"Output added to kubeflow")
+        return artifact_uri
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Prepare data from a CSV file.")
-    parser.add_argument("--input_csv_path", type=str, required=True, help="Path to the input CSV file.")
-    parser.add_argument("--output_parquet_path", type=str, required=True, help="Path to save the processed Parquet file.")
+    parser.add_argument("--input_artifact_path", type=str, required=True, help="Path to the input CSV file.")
+    parser.add_argument("--output_artifact_path", type=str, required=True, help="Path to the input CSV file.")
     args = parser.parse_args()
-    prepare_data(args.input_csv_path, args.output_parquet_path)
+    prepare_data(args.input_artifact_path, "processed_data")

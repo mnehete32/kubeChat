@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-server
+  namespace: kube-chat
+  labels:
+    app: mlflow-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow-server
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: mlflow-server
+    spec:
+      serviceAccountName: default-editor
+      containers:
+      - name: mlflow-server
+        image: python:3.11.4-slim-buster
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "20m"
+            memory: "100Mi"
+        command: ["sh", "-c"]
+        args:
+          - |
+            pip install mlflow && \
+            mlflow server \
+              --host 0.0.0.0 \
+              --port 8080 \
+              --backend-store-uri sqlite:///mlflow.db \
+              --default-artifact-root /data/
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 90
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          timeoutSeconds: 10
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - mountPath: /data
+          name: shared-storage
+      volumes:
+      - name: shared-storage
+        persistentVolumeClaim:
+          claimName: shared-pvc

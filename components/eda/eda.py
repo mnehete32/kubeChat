@@ -7,7 +7,7 @@ import io
 
 
 # Set MLflow tracking URI from environment variable or default to local
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080")
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow-service:5000/")
 print(f"MLflow Tracking URI: {MLFLOW_TRACKING_URI}")
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 

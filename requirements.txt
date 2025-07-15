@@ -1,0 +1,8 @@
+pandas
+scikit-learn
+matplotlib
+seaborn
+mlflow
+wandb
+kfp==2.4.0 # Kubeflow Pipelines SDK v2
+kfp-kubernetes

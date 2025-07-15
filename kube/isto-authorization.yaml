@@ -1,0 +1,15 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-allow
+  namespace: kube-chat
+spec:
+  selector:
+    matchLabels:
+      app: mlflow-server
+  action: ALLOW
+  rules:
+    - to:
+      - operation:
+          ports: ["8080"]
+

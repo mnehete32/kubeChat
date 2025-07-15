@@ -1,0 +1,29 @@
+name: train-test-split-op
+description: Train/test split for data prep with MLflow tracking and shared PVC
+
+inputs:
+  - name: input_artifact_path
+    type: String
+    description: Dataset Artifact URI
+
+outputs:
+  - name: train_artifact_path
+    type: String
+    description: Train dataset Artifact URI
+  - name: test_artifact_path
+    type: String
+    description: Train dataset Artifact URI
+
+implementation:
+  container:
+    image: mlops-data-pipeline-train-test-split:latest
+    command:
+      - python
+      - train_test_split.py
+    args:
+      - --input_artifact_path
+      - {inputValue: input_artifact_path}
+      - --train_artifact_path
+      - {outputPath: train_artifact_path}
+      - --test_artifact_path
+      - {outputPath: test_artifact_path}

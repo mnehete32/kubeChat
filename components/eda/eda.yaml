@@ -1,0 +1,20 @@
+name: eda-op
+description: Kubeflow component for Exploratory Data Analysis (EDA).
+inputs:
+  - name: input_csv
+    type: String
+    description: Path to input CSV file.
+  - name: output_dir
+    type: String
+    description: Directory path where EDA output will be saved.
+
+implementation:
+  container:
+    image: mlops-data-pipeline-eda:latest
+    command:
+      - python
+      - eda.py
+      - --input_csv_path
+      - {inputValue: input_csv}
+      - --output_dir
+      - {inputValue: output_dir}
