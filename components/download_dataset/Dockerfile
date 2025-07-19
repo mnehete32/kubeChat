@@ -11,8 +11,6 @@ COPY components/download_dataset/requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the train_test_split script into the container
 COPY components/download_dataset/download_dataset.py .
 
-# Command to run the train_test_split script. This will be overridden by Kubeflow Pipelines.
 ENTRYPOINT ["python", "download_dataset.py"]

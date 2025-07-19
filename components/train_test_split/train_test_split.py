@@ -1,135 +1,137 @@
+import os
+import argparse
 import pandas as pd
 import mlflow
-from sklearn.model_selection import train_test_split
 from typing import Tuple
-import os
-
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080")
-print(f"MLflow Tracking URI: {MLFLOW_TRACKING_URI}")
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-
-mlflow.set_experiment("kubeChat")
+from sklearn.model_selection import train_test_split
 
 
-def load_data_from_mlflow(artifact_path: str) -> pd.DataFrame:
-    """Load preprocessed data from MLflow run"""
-    try:
+class DataSplitter:
+    def __init__(
+        self,
+        input_artifact_path: str,
+        train_artifact_path: str,
+        test_artifact_path: str,
+        target_col: str = "command_name",
+        test_size: float = 0.2,
+        random_state: int = 42,
+        mlflow_tracking_uri: str = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080"),
+        experiment_name: str = "kubeChat"
+    ):
+        self.input_artifact_path = input_artifact_path
+        self.train_artifact_path = train_artifact_path
+        self.test_artifact_path = test_artifact_path
+        self.target_col = target_col
+        self.test_size = test_size
+        self.random_state = random_state
+        self.mlflow_tracking_uri = mlflow_tracking_uri
+        self.experiment_name = experiment_name
 
-        local_path = mlflow.artifacts.download_artifacts(artifact_path)
+        mlflow.set_tracking_uri(self.mlflow_tracking_uri)
+        mlflow.set_experiment(self.experiment_name)
 
-        return pd.read_parquet(local_path)
-    
-    except Exception as e:
-        print(f"Failed to load from MLflow: {str(e)}")
-        raise
+    def load_data(self) -> pd.DataFrame:
+        """Load preprocessed data from MLflow or raise exception"""
+        local_path = mlflow.artifacts.download_artifacts(self.input_artifact_path)
+        df = pd.read_parquet(local_path)
+        print(f"Successfully loaded data from: {local_path}")
+        return df
 
-def get_input_data(artifact_path: str) -> pd.DataFrame:
-    """Get input data trying MLflow first, then local fallback"""
-    try:
-        return load_data_from_mlflow(artifact_path)
-    except Exception:
-        print("Using local data fallback")
-        raise
+    def split_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Split the dataframe into train and test with fallback on stratification error"""
+        X = df.drop(columns=[self.target_col])
+        y = df[self.target_col]
 
-def perform_train_test_split(
-    df: pd.DataFrame,
-    target_col: str = 'command_name',
-    test_size: float = 0.2,
-    random_state: int = 42
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Perform train-test split with stratification fallback"""
-    X = df.drop(columns=[target_col])
-    y = df[target_col]
-    
-    try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=test_size,
-            random_state=random_state,
-            stratify=y
-        )
-        print("Stratified split successful")
-    except ValueError:
-        print("Stratification failed - performing standard split")
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=test_size,
-            random_state=random_state
-        )
-    
-    return (
-        pd.concat([X_train, y_train], axis=1),
-        pd.concat([X_test, y_test], axis=1)
-    )
+        try:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y,
+                test_size=self.test_size,
+                random_state=self.random_state,
+                stratify=y
+            )
+            print("Stratified split successful.")
+        except ValueError:
+            print("Stratification failed. Using random split.")
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y,
+                test_size=self.test_size,
+                random_state=self.random_state
+            )
 
-def save_datasets(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    train_dir: str = '/data/',
-    test_dir: str = '/data/',
-    run_name: str = "Train_Test_Split",
-    output_artifact_path: str = "dataset"
-) -> None:
-    """Save datasets to local files"""
-    os.makedirs(os.path.dirname(train_dir), exist_ok=True)
-    os.makedirs(os.path.dirname(test_dir), exist_ok=True)
-    train_filename = "train.parquet"
-    test_filename = "test.parquet"
-    train_path = os.path.join(train_dir, train_filename)
-    test_path = os.path.join(test_dir, test_filename)
-    train_df.to_parquet(train_path, index=False)
-    test_df.to_parquet(test_path, index=False)
-    print(f"Datasets saved to {train_dir} and {test_dir}")
+        train_df = pd.concat([X_train, y_train], axis=1)
+        test_df = pd.concat([X_test, y_test], axis=1)
+        return train_df, test_df
 
-    """Log datasets and parameters to MLflow"""
-    with mlflow.start_run(run_name=run_name):
-        # Log parameters
-        mlflow.log_params({
-            "split_ratio": 0.2,
-            "random_state": 42
-        })
-        
-        # Log tags
-        mlflow.set_tags({
-            "phase": "data_split",
-            "parent_run": "Data_Preparation_Phase"
-        })
-        
-        train_artifact_path = os.path.join(output_artifact_path, train_filename)
-        test_artifact_path = os.path.join(output_artifact_path,test_filename)
-        mlflow.log_artifact(train_path, train_artifact_path)
-        mlflow.log_artifact(test_path, test_artifact_path)
-        train_artifact_uri = mlflow.get_artifact_uri(train_artifact_path)
-        test_artifact_uri = mlflow.get_artifact_uri(test_artifact_path)
+    def save_local(self, df: pd.DataFrame, path: str) -> None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        df.to_parquet(path, index=False)
+        print(f"Saved dataset to {path}")
 
-        print(f"TRAIN MLflow Artifact URI: {train_artifact_uri}")
-        print(f"TEST MLflow Artifact URI: {test_artifact_uri}")
-        print("Datasets logged to MLflow")
+    def log_to_mlflow(self, train_path: str, test_path: str) -> Tuple[str, str]:
+        """Log datasets and parameters to MLflow, and return artifact URIs"""
+        with mlflow.start_run(run_name="Train_Test_Split"):
+            mlflow.log_params({
+                "split_ratio": self.test_size,
+                "random_state": self.random_state
+            })
 
-        with open(args.train_artifact_path, "w") as f:
-            f.write(train_artifact_uri)
-        with open(args.test_artifact_path, "w") as f:
-            f.write(test_artifact_uri)
-        return train_artifact_uri, test_artifact_uri
-        
+            mlflow.set_tags({
+                "phase": "data_split",
+                "parent_run": "Data_Preparation_Phase"
+            })
+
+            # Define artifact relative paths
+            train_name = os.path.basename(train_path)
+            test_name = os.path.basename(test_path)
+            base_output = "dataset"
+            train_mlflow_artifact_path = os.path.join(base_output, train_name)
+            test_mlflow_artifact_path = os.path.join(base_output, test_name)
+            
+            mlflow.log_artifact(train_path, base_output)
+            mlflow.log_artifact(test_path, base_output)
+
+            train_uri = mlflow.get_artifact_uri(train_mlflow_artifact_path)
+            test_uri = mlflow.get_artifact_uri(test_mlflow_artifact_path)
+
+            print(f"Train artifact URI: {train_uri}")
+            print(f"Test artifact URI: {test_uri}")
+
+            return train_uri, test_uri
+
+    def write_output_paths(self, train_uri: str, test_uri: str):
+        """Save the artifact URIs to given output files"""
+        with open(self.train_artifact_path, "w") as f:
+            f.write(train_uri)
+        with open(self.test_artifact_path, "w") as f:
+            f.write(test_uri)
+        print("Artifact URIs written to output files.")
+
+    def run(self):
+        print("Starting data splitting pipeline...")
+        df = self.load_data()
+        train_df, test_df = self.split_data(df)
+
+        train_path = "output/train.parquet"
+        test_path = "output/test.parquet"
+
+        self.save_local(train_df, train_path)
+        self.save_local(test_df, test_path)
+
+        train_uri, test_uri = self.log_to_mlflow(train_path, test_path)
+        self.write_output_paths(train_uri, test_uri)
+        print("Pipeline completed successfully.")
+
 
 if __name__ == "__main__":
-    print("Starting data splitting process...")
-    
-    import argparse
-    parser = argparse.ArgumentParser(description="Prepare data from a CSV file.")
-    parser.add_argument("--input_artifact_path", type=str, required=True, help="Path to the input CSV file.")
-    parser.add_argument("--train_artifact_path", type=str, required=True, help="Path to the input CSV file.")
-    parser.add_argument("--test_artifact_path", type=str, required=True, help="Path to the input CSV file.")
+    parser = argparse.ArgumentParser(description="Train-Test Split with MLflow Tracking")
+    parser.add_argument("--input_artifact_path", type=str, required=True, help="MLflow artifact path to input dataset")
+    parser.add_argument("--train_artifact_path", type=str, required=True, help="Output file to store train artifact URI")
+    parser.add_argument("--test_artifact_path", type=str, required=True, help="Output file to store test artifact URI")
     args = parser.parse_args()
 
-    # Load data
-    data = get_input_data(args.input_artifact_path)
-    
-    # Split data
-    train_data, test_data = perform_train_test_split(data)
-    
-    # Save locally
-    train_artifact_uri, test_artifact_uri = save_datasets(train_data, test_data)
-    print("Process completed successfully")    
-    
+    splitter = DataSplitter(
+        input_artifact_path=args.input_artifact_path,
+        train_artifact_path=args.train_artifact_path,
+        test_artifact_path=args.test_artifact_path
+    )
+    splitter.run()
