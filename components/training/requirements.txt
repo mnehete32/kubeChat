@@ -1,0 +1,12 @@
+torch
+mlflow
+datasets
+transformers
+peft
+accelerate
+bitsandbytes
+trl
+pandas
+evaluate
+rouge_score
+sacrebleu
