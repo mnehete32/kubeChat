@@ -24,11 +24,11 @@ spec:
       containers:
       - name: mlflow-server
         image: python:3.11.4-slim-buster
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: "20m"
-            memory: "100Mi"
+            cpu: "200m"
+            memory: "400Mi"
         command: ["sh", "-c"]
         args:
           - |
@@ -42,13 +42,13 @@ spec:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 90
+          initialDelaySeconds: 400
           timeoutSeconds: 10
         readinessProbe:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 400
           timeoutSeconds: 10
         ports:
         - containerPort: 8080

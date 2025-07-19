@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - mlflow/mlflow-server.yaml
+  - mlflow/mlflow-service.yaml
+  - common-config.yaml
+  # - kube/dex-config.yaml
+  - isto-authorization.yaml
+  - profile.yaml
+  - storage.yaml
+  - katib-experiment-watcher-role.yaml
+  - bind-katib-experiment-watcher.yaml
+  - nehete.com/ingress.yaml
