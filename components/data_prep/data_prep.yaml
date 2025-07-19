@@ -7,7 +7,7 @@ inputs:
     description: Path to input CSV file.
 
 outputs:
-  - name: output_artifact_path
+  - name: output_dataset_uri_path
     type: String
     description: Directory path where EDA output will be saved.
 
@@ -19,5 +19,5 @@ implementation:
       - data_preparation.py
       - --input_artifact_path
       - {inputValue: input_artifact_path}
-      - --output_artifact_path
-      - {outputPath: output_artifact_path}
+      - --output_dataset_uri_path
+      - {outputPath: output_dataset_uri_path}
