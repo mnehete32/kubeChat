@@ -1,0 +1,37 @@
+name: training-op
+description: Download Dataset OP for downloading dataset and saving dataset as artifact in MLflow.
+
+inputs:
+  - name: training_dataset_path
+    type: String
+    description: Dataset Artifact URI
+  - name: lora_r
+    type: Integer
+    description: 'LoRA rank'
+  - name: lora_dropout
+    type: Float
+    description: 'LoRA dropout rate'
+outputs:
+  - name: output_model_dir
+    type: String
+    description: Directory for model to save
+
+implementation:
+  container:
+    image: mlops-training:latest
+    command:
+      - python
+      - train.py
+      - --save_model
+      - --test_run
+    args:
+      - --training_dataset_path
+      - {inputValue: training_dataset_path}
+      - --output_model_dir
+      - {outputPath: output_model_dir}
+      - --lora_r
+      - {inputValue: lora_r}
+      - --lora_dropout
+      - {inputValue: lora_dropout}
+
+      

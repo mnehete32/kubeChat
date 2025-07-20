@@ -1,0 +1,10 @@
+torch
+mlflow
+datasets
+transformers
+rouge 
+sentence_transformers
+textstat
+nltk
+bert_score
+evaluate

@@ -1,0 +1,28 @@
+name: testing-op
+description: Download Dataset OP for downloading dataset and saving dataset as artifact in MLflow.
+
+inputs:
+  - name: test_dataset_path
+    type: String
+    description: Test Dataset Artifact URI
+  - name: model_path
+    type: String
+    description: Model Directory Path
+
+implementation:
+  container:
+    image: mlops-testing:latest
+    command:
+      - python
+      - test.py
+      - --output_dir
+      - /data/metrics/
+      - --test_run
+    args:
+      - --dataset_path
+      - {inputValue: test_dataset_path}
+      - --model_path
+      - {inputValue: model_path}
+
+
+      
