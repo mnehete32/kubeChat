@@ -1,9 +1,9 @@
 from kfp.dsl import pipeline, component, OutputPath
 from kfp.components import load_component_from_file
 from kfp import kubernetes
-from components.training.katib_train_op import create_katib_experiment
+from components.training.katib_train_op import katib_hpo_tunning
 from datetime import datetime
-from pipeline.kfp_client_manager import KFPClientManager
+from kfp_client.kfp_client_manager import KFPClientManager
 import os
 import json
 
@@ -52,7 +52,7 @@ def kube_chat_pipeline():
     )
     helper.apply_common_settings(split_task)
 
-    katib_task = create_katib_experiment(
+    katib_task = katib_hpo_tunning(
         experiment_name="katib-train",
         namespace="kube-chat",
         training_dataset_path=split_task.outputs["train_artifact_path"],
@@ -94,11 +94,22 @@ class PipelineExecutor:
         self.version_name = f"{self.pipeline_name} {self.timestamp}"
 
     def get_or_create_experiment(self):
-        return self.kfp_client.get_experiment(experiment_name=self.experiment_name, namespace=self.namespace)
+
+        experiments = self.kfp_client.list_experiments(namespace=self.namespace).experiments
+        if experiments is not None:
+            for exp in experiments:
+                if exp.display_name == self.experiment_name:
+                    return exp
+        
+        return self.kfp_client.create_experiment(name=self.experiment_name, namespace=self.namespace)
 
     def find_existing_pipeline(self):
         pipelines = self.kfp_client.list_pipelines(namespace=self.namespace).pipelines
-        return next((p for p in pipelines if p.display_name == self.pipeline_name), None)
+        if pipelines is not None:
+            for p in pipelines:
+                if p.display_name == self.pipeline_name:
+                    return p
+        return None
 
     def execute(self):
         experiment = self.get_or_create_experiment()
