@@ -29,7 +29,7 @@ class EvaluationConfig:
     output_dir: str
     
     # Dataset column mapping
-    prompt_template_columns: List[str] = field(default_factory=lambda: ["objective", "question"])
+    prompt_template_columns: List[str] = field(default_factory=lambda: ["objective", "chain_of_thought", "question"])
     reference_answer_column: str = "command"
     question_column: str = "question"
 
@@ -75,7 +75,7 @@ class DataLoader:
             content = example.get(key)
             if content:
                 prompt += f"### {key}:\n{content}\n"
-        prompt += f"### {self.config.reference_answer_column}:\n" # Prompt for the answer
+        # prompt += f"### {self.config.reference_answer_column}:\n" # Prompt for the answer
         return prompt
 
     def get_data(self) -> (List[str], List[str], List[str]):
@@ -113,12 +113,12 @@ class ModelPredictor:
         )
         return model, tokenizer
 
-    def predict(self, prompts: List[str], batch_size: int = 8) -> List[str]:
+    def predict(self, prompts: List[str], responses: List[str], batch_size: int = 8) -> List[str]:
         """Generates predictions for a list of prompts in batches."""
         predictions = []
         for i in tqdm(range(0, len(prompts), batch_size), desc="Generating Predictions"):
             batch_prompts = prompts[i:i+batch_size]
-            inputs = self.tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True).to(self.device)
+            inputs = self.tokenizer(batch_prompts, text_target=responses, return_tensors="pt", truncation=True, padding="max_length", max_length=128).to(self.device)
             
             # Generate output, ensuring we only decode the newly generated tokens
             output_ids = self.model.generate(
@@ -205,7 +205,7 @@ class EvaluationPipeline:
             
             # 2. Generate Predictions
             predictor = ModelPredictor(self.config.model_path, self.config.device)
-            predictions = predictor.predict(prompts)
+            predictions = predictor.predict(prompts, references)
             
             # 3. Compute Metrics
             calculator = MetricsCalculator(questions, references, predictions)

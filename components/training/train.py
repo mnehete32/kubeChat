@@ -31,6 +31,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ['CURL_CA_BUNDLE'] = ''
 
 
 # --- Configuration ---
@@ -69,8 +70,9 @@ class TrainingConfig:
 
     # Dataset formatting
     order_of_text_list: List[str] = field(default_factory=lambda: [
-        "objective", "chain_of_thought", "question", "command"
+        "objective", "chain_of_thought", "question"
     ])
+    target_text_column : str = "command"
     
     @classmethod
     def from_args(cls):
@@ -156,14 +158,16 @@ class DataProcessor:
             content = example.get(key)
             if content:
                 final_str += f"### {key}:\n{content}\n"
-        example["text"] = final_str
+        example["prompt"] = final_str
+        example["response"] = example[self.config.target_text_column]
         return example
 
     def _tokenize(self, example: Dict[str, Any]) -> Dict[str, List[int]]:
         """Tokenizes a formatted text example."""
         formatted_example = self._format_text(example)
         return self.tokenizer(
-            formatted_example["text"],
+            formatted_example["prompt"],
+            text_target=example["response"],
             truncation=True,
             padding="max_length",
             max_length=128
@@ -307,6 +311,8 @@ class FineTuningPipeline:
             if self.config.save_model:
                 self._save_artifacts(model, tokenizer, model_save_dir, run_id)
             
+            # Adding print to capture by katib for hyperparameter tunning
+            print(f"eval-bleu={metrics['eval_bleu']}")
             logging.info(f"✅ Training complete. Run ID: {run_id}")
 
 
