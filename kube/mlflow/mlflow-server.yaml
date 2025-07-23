@@ -33,10 +33,11 @@ spec:
         args:
           - |
             pip install mlflow && \
+            mkdir -p /data/mlflowdb/ && \
             mlflow server \
               --host 0.0.0.0 \
               --port 8080 \
-              --backend-store-uri sqlite:///mlflow.db \
+              --backend-store-uri sqlite:////data/mlflowdb/mlflow.db \
               --default-artifact-root /data/
         livenessProbe:
           httpGet:
