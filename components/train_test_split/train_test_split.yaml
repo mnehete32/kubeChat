@@ -16,7 +16,7 @@ outputs:
 
 implementation:
   container:
-    image: mlops-data-pipeline-train-test-split:latest
+    image: mlops-train-test-split:latest
     command:
       - python
       - train_test_split.py

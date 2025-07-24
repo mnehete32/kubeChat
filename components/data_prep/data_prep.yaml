@@ -13,7 +13,7 @@ outputs:
 
 implementation:
   container:
-    image: mlops-data-pipeline-data-preparation:latest
+    image: mlops-data-preparation:latest
     command:
       - python
       - data_preparation.py

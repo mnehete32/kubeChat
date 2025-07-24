@@ -1,11 +1,12 @@
-from kfp.dsl import pipeline, component, OutputPath
+import os
+import json
+import argparse
+from kfp.dsl import pipeline, component, OutputPath, PipelineTask
 from kfp.components import load_component_from_file
 from kfp import kubernetes
 from components.training.katib_train_op import create_katib_experiment
 from datetime import datetime
-from kfp_client.kfp_client_manager import KFPClientManager
-import os
-import json
+from kfp_client import KFPClientManager
 
 
 class KubeflowOpsHelper:
@@ -13,11 +14,18 @@ class KubeflowOpsHelper:
         self.pvc_name = pvc_name
         self.config_map = config_map
 
-    def apply_common_settings(self, task):
+    def apply_common_settings(self, task: PipelineTask, base_image: str, tag: str):
         kubernetes.mount_pvc(task, pvc_name=self.pvc_name, mount_path='/data/')
         kubernetes.use_config_map_as_env(task, self.config_map, {"MLFLOW_TRACKING_URI": "MLFLOW_TRACKING_URI"})
         kubernetes.set_image_pull_policy(task, "IfNotPresent")
 
+        # Using container with new tag
+        container_img = base_image + ":" + tag
+        task.set_container_image(container_img)
+
+    def change_container_tag(self, base_image: str, task: PipelineTask, tag: str):
+        container_img = base_image + ":" + tag
+        task.set_container_image(container_img)
     @staticmethod
     def load_op(path):
         return load_component_from_file(path)
@@ -40,21 +48,21 @@ def kube_chat_pipeline():
     helper = KubeflowOpsHelper()
 
     download_task = helper.load_op("components/download_dataset/download_dataset.yaml")()
-    helper.apply_common_settings(download_task)
+    helper.apply_common_settings(download_task, "mlops-download-dataset", args.commit_sha_tag)
 
     data_prep_task = helper.load_op("components/data_prep/data_prep.yaml")(
         input_artifact_path=download_task.outputs["dataset_artifact_uri"]
     )
-    helper.apply_common_settings(data_prep_task)
+    helper.apply_common_settings(data_prep_task, "mlops-data-preparation", args.commit_sha_tag)
 
     split_task = helper.load_op("components/train_test_split/train_test_split.yaml")(
         input_artifact_path=data_prep_task.outputs["output_dataset_uri_path"]
     )
-    helper.apply_common_settings(split_task)
+    helper.apply_common_settings(split_task, "mlops-train-test-split", args.commit_sha_tag)
 
     katib_task = create_katib_experiment(
         experiment_name="katib-train",
-        namespace="kube-chat",
+        namespace=os.getenv("NAMESPACE"),
         training_dataset_path=split_task.outputs["train_artifact_path"],
         output_model_dir="/data/model/",
         base_yaml_path="katib.yaml"
@@ -68,13 +76,13 @@ def kube_chat_pipeline():
         lora_r=convert_task.outputs["lora_r"],
         lora_dropout=convert_task.outputs["lora_dropout"]
     )
-    helper.apply_common_settings(train_task)
+    helper.apply_common_settings(train_task, "mlops-training", args.commit_sha_tag)
 
     test_task = helper.load_op("components/testing/test.yaml")(
         test_dataset_path=split_task.outputs["test_artifact_path"],
         model_path=train_task.outputs["output_model_dir"]
     )
-    helper.apply_common_settings(test_task)
+    helper.apply_common_settings(test_task, "mlops-testing", args.commit_sha_tag)
 
 
 class PipelineExecutor:
@@ -82,16 +90,15 @@ class PipelineExecutor:
         self.kfp_client_manager = KFPClientManager(
             api_url="http://kubeflow.nehete.com/pipeline/",
             skip_tls_verify=True,
-            dex_username=os.getenv("USER_NAME", "mayur@nehete.com"),
-            dex_password=os.getenv("PASSWORD", "password"),
+            dex_username=os.getenv("USER_NAME"),
+            dex_password=os.getenv("PASSWORD"),
             dex_auth_type="local"
         )
         self.kfp_client = self.kfp_client_manager.create_kfp_client()
         self.pipeline_name = os.getenv("PIPELINE_NAME", "kubeChat-pipeline")
-        self.namespace = os.getenv("NAMESPACE", "kube-chat")
-        self.experiment_name = os.getenv("EXPERIEMENT_NAME", "KubeChat")
-        self.timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.version_name = f"{self.pipeline_name} {self.timestamp}"
+        self.namespace = os.getenv("NAMESPACE")
+        self.experiment_name = os.getenv("EXPERIEMENT_NAME")
+        self.version_name = f"{self.pipeline_name}-{args.commit_sha_tag}"
 
     def get_or_create_experiment(self):
 
@@ -146,4 +153,7 @@ class PipelineExecutor:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Create KubeFlow pipeline and run")
+    parser.add_argument("commit_sha_tag", type = str, default = "latest", required = False)
+    args = parser.parse_args()
     PipelineExecutor().execute()

@@ -1,6 +1,6 @@
 from kfp.v2.dsl import component
 
-@component(base_image="katib_launcher:latest")
+@component(base_image="python:3.11.4-slim-buster", packages_to_install=["kubernetes"])
 def create_katib_experiment(
     experiment_name: str,
     namespace: str,

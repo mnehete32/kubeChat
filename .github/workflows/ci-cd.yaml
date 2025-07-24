@@ -4,6 +4,8 @@ on:
     branches:
       - master
 
+
+
 jobs:
   build_and_push_components:
     runs-on: [self-hosted, macOS, ARM64]
@@ -14,60 +16,62 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Check for changes in component folders
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            download_dataset:
-              - 'components/download_dataset/**'
-              - 'requirements.txt'
-            eda:
-              - 'components/eda/**'
-              - 'requirements.txt'
-            data_preparation:
-              - 'components/data_prep/**'
-              - 'requirements.txt'
-            data_validation:
-              - 'components/data_val/**'
-              - 'components/metrics_evaluation/**'
-              - 'requirements.txt'
-            train_test_split:
-              - 'components/train_test_split/**'
-              - 'requirements.txt'
-
       # --- Data Preparation Component ---
       - name: Build and Push Download Dataset Docker Image
-        if: steps.filter.outputs.download_dataset == 'true'
         run: |
           docker build -f components/download_dataset/Dockerfile -t mlops-download-dataset:${{ github.sha }} .
           # docker push mlops-download-dataset:${{ github.sha }}
 
-      # --- EDA Component ---
-      - name: Build and Push EDA Docker Image
-        if: steps.filter.outputs.eda == 'true'
-        run: |
-          docker build -f components/eda/Dockerfile -t mlops-data-pipeline-eda:${{ github.sha }} .
-          # docker push mlops-data-pipeline-eda:${{ github.sha }}
-
       # --- Data Preparation Component ---
       - name: Build and Push Data Preparation Docker Image
-        if: steps.filter.outputs.data_preparation == 'true'
         run: |
-          docker build -f components/data_prep/Dockerfile -t mlops-data-pipeline-data-preparation:${{ github.sha }} .
-          # docker push mlops-data-pipeline-data-preparation:${{ github.sha }}
+          docker build -f components/data_prep/Dockerfile -t mlops-data-preparation:${{ github.sha }} .
+          # docker push mlops-data-preparation:${{ github.sha }}
 
-      # --- Data Validation Component ---
-      # - name: Build and Push Data Validation Docker Image
-      #   if: steps.filter.outputs.data_validation == 'true'
-      #   run: |
-      #     docker build -f components/data_validation/Dockerfile -t mlops-data-pipeline-data-validation:${{ github.sha }} .
-      #     # docker push mlops-data-pipeline-data-validation:${{ github.sha }}
-
-
-      # --- Data Validation Component ---
+      # --- Train Test Split Component ---
       - name: Build and Push Train Test Split Docker Image
-        if: steps.filter.outputs.train_test_split == 'true'
         run: |
-          docker build -f components/train_test_split/Dockerfile -t mlops-data-pipeline-train-test-split:${{ github.sha }} .
-          # docker push mlops-data-pipeline-train-test-split:${{ github.sha }}
+          docker build -f components/train_test_split/Dockerfile -t mlops-train-test-split:${{ github.sha }} .
+          # docker push mlops-train-test-split:${{ github.sha }}
+
+      # --- Training Component ---
+      - name: Build and Push Training Docker Image
+        run: |
+          docker build -f components/training/Dockerfile -t mlops-training:${{ github.sha }} .
+          # docker push mlops-training:${{ github.sha }}
+      
+      # --- Testing Component ---
+      - name: Build and Push Testing Docker Image
+        run: |
+          docker build -f components/testing/Dockerfile -t mlops-testing:${{ github.sha }} .
+          # docker push mlops-testing:${{ github.sha }}
+
+
+  run_pipeline:
+    needs: build_and_push_components
+    runs-on: [self-hosted, linux, x64]
+    container: python:3.11.4-slim-buster
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # - name: Set up Docker Buildx
+    #   uses: docker/setup-buildx-action@v3
+    # - name: Create kubernetes resources and run pipeline
+    #   uses: actions/setup-python@v3
+    #   with:
+    #     python-version: 3.11
+
+    - name: Install Python dependencies
+      run: |
+          pip install -r 'requirements.txt'
+    - name: Create Kubernetes resources
+      run: |
+          kubectl apply -k ./kube/
+    - name: Run Pipeline
+      run: |
+          python pipeline.py --commit_sha_tag ${{ github.sha }}
+    - name: Exit Container
+      run: |
+          exit
+      
