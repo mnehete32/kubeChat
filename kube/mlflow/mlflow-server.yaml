@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mlflow-server
-  namespace: kube-chat
+  namespace: kubechat
   labels:
     app: mlflow-server
 spec:

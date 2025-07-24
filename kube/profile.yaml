@@ -1,7 +1,7 @@
 apiVersion: kubeflow.org/v1
 kind: Profile
 metadata:
-  name: kube-chat
+  name: kubechat
 spec:
   owner:
     kind: User

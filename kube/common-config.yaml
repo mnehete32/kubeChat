@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: common-config
-  namespace: kube-chat
+  namespace: kubechat
 data:
   MLFLOW_TRACKING_URI : http://mlflow-service:80/
   MLFLOW_EXPERIMENT_NAME: KubeChat

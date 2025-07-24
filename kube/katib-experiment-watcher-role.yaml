@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: katib-experiment-watcher
-  namespace: kube-chat
+  namespace: kubechat
 rules:
   - apiGroups: ["kubeflow.org"]
     resources:
