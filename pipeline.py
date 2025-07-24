@@ -1,7 +1,7 @@
 from kfp.dsl import pipeline, component, OutputPath
 from kfp.components import load_component_from_file
 from kfp import kubernetes
-from components.training.katib_train_op import katib_hpo_tunning
+from components.training.katib_train_op import create_katib_experiment
 from datetime import datetime
 from kfp_client.kfp_client_manager import KFPClientManager
 import os
@@ -52,7 +52,7 @@ def kube_chat_pipeline():
     )
     helper.apply_common_settings(split_task)
 
-    katib_task = katib_hpo_tunning(
+    katib_task = create_katib_experiment(
         experiment_name="katib-train",
         namespace="kube-chat",
         training_dataset_path=split_task.outputs["train_artifact_path"],
@@ -100,8 +100,8 @@ class PipelineExecutor:
             for exp in experiments:
                 if exp.display_name == self.experiment_name:
                     return exp
-        
         return self.kfp_client.create_experiment(name=self.experiment_name, namespace=self.namespace)
+            
 
     def find_existing_pipeline(self):
         pipelines = self.kfp_client.list_pipelines(namespace=self.namespace).pipelines
