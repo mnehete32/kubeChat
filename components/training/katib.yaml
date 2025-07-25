@@ -53,42 +53,5 @@ spec:
         reference: dropout
       # - name: loraTargetModules
       #   reference: targetModules
-    trialSpec:
-      apiVersion: batch/v1
-      kind: Job
-      spec:
-        template:
-          metadata: 
-            annotations: 
-              "sidecar.istio.io/inject": "false"
-          spec:
-            serviceAccountName: default-editor
-            containers:
-              - name: training-container
-                image: mlops-training:latest  # Replace with your actual image URI
-                imagePullPolicy: IfNotPresent
-                command:
-                  - "python"
-                  - "/app/train.py"
-                  - "--training_dataset_path=/data/1/39b5f705b7214c869504eb46e0105068/artifacts/dataset/train.parquet"
-                  - "--output_model_dir=/data/model/"
-                  - "--lora_r=${trialParameters.loraR}"
-                  # - "--lora_alpha=${trialParameters.loraAlpha}",
-                  - "--lora_dropout=${trialParameters.loraDropout}"
-                  # - "--lora_target_modules=${trialParameters.loraTargetModules}"
-                  - "--test_run"
-                # resources:
-                #   limits:
-                #     memory: "1Gi"
-                #     cpu: "0.5"
-                envFrom:
-                  - configMapRef:
-                      name: common-config
-                volumeMounts:
-                  - mountPath: /data
-                    name: shared-storage
-            volumes:
-            - name: shared-storage
-              persistentVolumeClaim:
-                claimName: shared-pvc
-            restartPolicy: Never
+    
+    # trailSpec is defined in katib_train_op.py file

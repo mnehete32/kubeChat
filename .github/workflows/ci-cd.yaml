@@ -12,12 +12,15 @@ env:
   DOCKER_CERT_PATH: /home/mnehete32/.minikube/certs
   MINIKUBE_ACTIVE_DOCKERD: kube
 
+  # added as env variable in ci/cd action runners
+  # KUBEFLOW_API_URL: http://kubeflow.nehete.com/pipeline/
+
   # images
-  DOWNLOAD_DATASET_IMAGE: mlops-download-dataset:${{ github.sha }}
-  DATA_PREP_IMAGE: mlops-data-preparation:${{ github.sha }}
-  TRAIN_TEST_SPLIT_IMAGE: mlops-train-test-split:${{ github.sha }}
-  TRAINING_IMAGE: mlops-training:${{ github.sha }}
-  TESTING_IMAGE: mlops-testing:${{ github.sha }}
+  DOWNLOAD_DATASET_IMAGE: kubechat-download-dataset:${{ github.sha }}
+  DATA_PREP_IMAGE: kubechat-data-preparation:${{ github.sha }}
+  TRAIN_TEST_SPLIT_IMAGE: kubechat-train-test-split:${{ github.sha }}
+  TRAINING_IMAGE: kubechat-training:${{ github.sha }}
+  TESTING_IMAGE: kubechat-testing:${{ github.sha }}
 
 
 jobs:
@@ -94,7 +97,7 @@ jobs:
         EXPERIMENT_NAME: ${{ env.EXPERIMENT_NAME }}
         USER_NAME: ${{ secrets.USER_NAME }}
         PASSWORD: ${{ secrets.PASSWORD }}
-
+        KUBEFLOW_API_URL: ${{ env.KUBEFLOW_API_URL }}
       run: |
           python pipeline.py --commit_sha_tag ${{ github.sha }}
       

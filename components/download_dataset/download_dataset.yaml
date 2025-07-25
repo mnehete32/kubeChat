@@ -8,7 +8,7 @@ outputs:
 
 implementation:
   container:
-    image: mlops-download-dataset:latest
+    image: kubechat-download-dataset:latest
     command:
       - python
       - download_dataset.py

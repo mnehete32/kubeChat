@@ -18,7 +18,7 @@ outputs:
 
 implementation:
   container:
-    image: mlops-training:latest
+    image: kubechat-training:latest
     command:
       - python
       - train.py

@@ -58,7 +58,7 @@ def kube_chat_pipeline():
     helper.apply_common_settings(split_task, "TRAIN_TEST_SPLIT_IMAGE")
 
     katib_task = create_katib_experiment(
-        experiment_name="katib-train",
+        experiment_name= PipelineExecutor().version_name,
         namespace=os.getenv("NAMESPACE"),
         training_dataset_path=split_task.outputs["train_artifact_path"],
         output_model_dir="/tmp/model/", # as model directory is not required for next training job

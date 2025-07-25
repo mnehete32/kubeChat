@@ -13,7 +13,7 @@ outputs:
 
 implementation:
   container:
-    image: mlops-data-preparation:latest
+    image: kubechat-data-preparation:latest
     command:
       - python
       - data_preparation.py

@@ -11,7 +11,7 @@ inputs:
 
 implementation:
   container:
-    image: mlops-testing:latest
+    image: kubechat-testing:latest
     command:
       - python
       - test.py

@@ -26,6 +26,7 @@ def create_katib_experiment(
     config.load_incluster_config()
 
     # Read base YAML
+    # base_yaml_path is path to katib.yaml file in pipeline container
     with open(base_yaml_path, 'r') as f:
         experiment_config = yaml.safe_load(f)
 
@@ -34,22 +35,62 @@ def create_katib_experiment(
     experiment_config['metadata']['namespace'] = namespace
 
     # Patch trial container command args with pipeline inputs
-    trial_template = experiment_config['spec']['trialTemplate']
-    containers = trial_template['trialSpec']['spec']['template']['spec']['containers']
-    for c in containers:
-        if c.get('name') == 'training-container':
-            c['command'] = [
-                'python', '/app/train.py',
-                f'--training_dataset_path={training_dataset_path}',
-                f'--output_model_dir={output_model_dir}',
-                '--lora_r=${trialParameters.loraR}',
-                # "--lora_alpha=${trialParameters.loraAlpha}",
-                '--lora_dropout=${trialParameters.loraDropout}',
-                # "--lora_target_modules=${trialParameters.loraTargetModules}",
-                '--test_run',
-            ]
-            c["image"] = image
-    trial_template['trialSpec']['spec']['template']['spec']['containers'] = containers
+    trial_template = {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "spec": {
+        "template": {
+        "metadata": {
+            "annotations": {
+            "sidecar.istio.io/inject": "false"
+            }
+        },
+        "spec": {
+            "serviceAccountName": "default-editor",
+            "containers": [
+            {
+                "name": "training-container",
+                "image": image,
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                    'python', 
+                    '/app/train.py',
+                    f'--training_dataset_path={training_dataset_path}',
+                    f'--output_model_dir={output_model_dir}',
+                    '--lora_r=${trialParameters.loraR}',
+                    # "--lora_alpha=${trialParameters.loraAlpha}",
+                    '--lora_dropout=${trialParameters.loraDropout}',
+                    # "--lora_target_modules=${trialParameters.loraTargetModules}",
+                    '--test_run',
+            ],
+                "envFrom": [
+                {
+                    "configMapRef": {
+                    "name": "common-config"
+                    }
+                }
+                ],
+                "volumeMounts": [
+                {
+                    "mountPath": "/data",
+                    "name": "shared-storage"
+                }
+                ]
+            }
+            ],
+            "volumes": [
+            {
+                "name": "shared-storage",
+                "persistentVolumeClaim": {
+                "claimName": "shared-pvc"
+                }
+            }
+            ],
+            "restartPolicy": "Never"
+        }
+        }
+    }
+    }
     experiment_config['spec']['trialTemplate'] = trial_template
 
     # API client
