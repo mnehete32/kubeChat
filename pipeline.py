@@ -23,9 +23,6 @@ class KubeflowOpsHelper:
         image = os.getenv(env_var)
         task.set_container_image(image)
 
-    def change_container_tag(self, base_image: str, task: PipelineTask, tag: str):
-        container_img = base_image + ":" + tag
-        task.set_container_image(container_img)
     @staticmethod
     def load_op(path):
         return load_component_from_file(path)
