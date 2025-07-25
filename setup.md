@@ -20,13 +20,8 @@ To expose **Kubeflow** and **MLflow** via custom domain URLs, install the **NGIN
 
 Once installed, you will be able to access:
 
-<<<<<<< HEAD
-- `[http://kubeflow.nehete.com/](http://kubeflow.nehete.com/)`
-- `[http://mlflow.nehete.com/](http://mlflow.nehete.com/)`
-=======
 - [http://kubeflow.nehete.com/](http://kubeflow.nehete.com/)
 - [http://mlflow.nehete.com/](http://mlflow.nehete.com/)
->>>>>>> 1af9c1220906a3ec535e70c5d553af221fd2aa8e
 
 ## KFP Client Login Manager
 
