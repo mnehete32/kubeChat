@@ -16,7 +16,7 @@ class DataSplitter:
         test_size: float = 0.2,
         random_state: int = 42,
         mlflow_tracking_uri: str = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080"),
-        experiment_name: str = "kubeChat"
+        experiment_name: str = os.getenv("EXPERIMENT_NAME")
     ):
         self.input_artifact_path = input_artifact_path
         self.train_artifact_path = train_artifact_path

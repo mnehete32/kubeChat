@@ -14,14 +14,14 @@ class KubeflowOpsHelper:
         self.pvc_name = pvc_name
         self.config_map = config_map
 
-    def apply_common_settings(self, task: PipelineTask, base_image: str, tag: str):
+    def apply_common_settings(self, task: PipelineTask, env_var: str):
         kubernetes.mount_pvc(task, pvc_name=self.pvc_name, mount_path='/data/')
-        kubernetes.use_config_map_as_env(task, self.config_map, {"MLFLOW_TRACKING_URI": "MLFLOW_TRACKING_URI"})
+        kubernetes.use_config_map_as_env(task, self.config_map, {"MLFLOW_TRACKING_URI": "MLFLOW_TRACKING_URI", "EXPERIMENT_NAME":"EXPERIMENT_NAME"})
         kubernetes.set_image_pull_policy(task, "IfNotPresent")
 
         # Using container with new tag
-        container_img = base_image + ":" + tag
-        task.set_container_image(container_img)
+        image = os.getenv(env_var)
+        task.set_container_image(image)
 
     def change_container_tag(self, base_image: str, task: PipelineTask, tag: str):
         container_img = base_image + ":" + tag
@@ -48,24 +48,25 @@ def kube_chat_pipeline():
     helper = KubeflowOpsHelper()
 
     download_task = helper.load_op("components/download_dataset/download_dataset.yaml")()
-    helper.apply_common_settings(download_task, "mlops-download-dataset", args.commit_sha_tag)
+    helper.apply_common_settings(download_task, "DOWNLOAD_DATASET_IMAGE")
 
     data_prep_task = helper.load_op("components/data_prep/data_prep.yaml")(
         input_artifact_path=download_task.outputs["dataset_artifact_uri"]
     )
-    helper.apply_common_settings(data_prep_task, "mlops-data-preparation", args.commit_sha_tag)
+    helper.apply_common_settings(data_prep_task, "DATA_PREP_IMAGE")
 
     split_task = helper.load_op("components/train_test_split/train_test_split.yaml")(
         input_artifact_path=data_prep_task.outputs["output_dataset_uri_path"]
     )
-    helper.apply_common_settings(split_task, "mlops-train-test-split", args.commit_sha_tag)
+    helper.apply_common_settings(split_task, "TRAIN_TEST_SPLIT_IMAGE")
 
     katib_task = create_katib_experiment(
         experiment_name="katib-train",
         namespace=os.getenv("NAMESPACE"),
         training_dataset_path=split_task.outputs["train_artifact_path"],
-        output_model_dir="/data/model/",
-        base_yaml_path="katib.yaml"
+        output_model_dir="/tmp/model/", # as model directory is not required for next training job
+        base_yaml_path="katib.yaml",
+        image=os.getenv("TRAINING_IMAGE")
     )
     kubernetes.set_image_pull_policy(katib_task, "IfNotPresent")
 
@@ -76,13 +77,13 @@ def kube_chat_pipeline():
         lora_r=convert_task.outputs["lora_r"],
         lora_dropout=convert_task.outputs["lora_dropout"]
     )
-    helper.apply_common_settings(train_task, "mlops-training", args.commit_sha_tag)
+    helper.apply_common_settings(train_task, "TRAINING_IMAGE")
 
     test_task = helper.load_op("components/testing/test.yaml")(
         test_dataset_path=split_task.outputs["test_artifact_path"],
         model_path=train_task.outputs["output_model_dir"]
     )
-    helper.apply_common_settings(test_task, "mlops-testing", args.commit_sha_tag)
+    helper.apply_common_settings(test_task, "TESTING_IMAGE")
 
 
 class PipelineExecutor:
@@ -97,7 +98,7 @@ class PipelineExecutor:
         self.kfp_client = self.kfp_client_manager.create_kfp_client()
         self.pipeline_name = os.getenv("PIPELINE_NAME", "kubeChat-pipeline")
         self.namespace = os.getenv("NAMESPACE")
-        self.experiment_name = os.getenv("EXPERIEMENT_NAME")
+        self.experiment_name = os.getenv("EXPERIMENT_NAME")
         self.version_name = f"{self.pipeline_name}-{args.commit_sha_tag}"
 
     def get_or_create_experiment(self):

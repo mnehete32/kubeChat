@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
     dataset_logger = HFDatasetLogger(
         mlflow_tracking_uri=os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080/"),
-        experiment_name="kubeChat"
+        experiment_name=os.getenv("EXPERIMENT_NAME")
     )
 
     k8s_dataset_uri = dataset_logger.download_and_log_dataset(

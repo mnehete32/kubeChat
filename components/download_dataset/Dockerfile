@@ -6,11 +6,11 @@ WORKDIR /app
 
 # Copy the requirements file into the container
 # This assumes requirements.txt is at the project root
-COPY components/download_dataset/requirements.txt .
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY components/download_dataset/download_dataset.py .
+COPY download_dataset.py .
 
 ENTRYPOINT ["python", "download_dataset.py"]

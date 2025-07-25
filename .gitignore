@@ -216,6 +216,5 @@ dataset/
 data/
 .vscode/
 *.DS_Store
-kube/dex-config.yaml
 kube/mnehete32-sa.yaml
 kube/test-pod.yaml

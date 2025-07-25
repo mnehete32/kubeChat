@@ -39,7 +39,7 @@ class EvaluationConfig:
     
     # MLflow settings
     mlflow_tracking_uri: str = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080/")
-    mlflow_experiment_name: str = "kubeChat-Evaluation"
+    mlflow_experiment_name: str = os.getenv("EXPERIMENT_NAME")
 
     @classmethod
     def from_args(cls):

@@ -5,10 +5,24 @@ on:
       - master
 
 
+env:
+  # using minikube docker
+  DOCKER_TLS_VERIFY: 1
+  DOCKER_HOST: tcp://192.168.49.2:2376
+  DOCKER_CERT_PATH: /home/mnehete32/.minikube/certs
+  MINIKUBE_ACTIVE_DOCKERD: kube
+
+  # images
+  DOWNLOAD_DATASET_IMAGE: mlops-download-dataset:${{ github.sha }}
+  DATA_PREP_IMAGE: mlops-data-preparation:${{ github.sha }}
+  TRAIN_TEST_SPLIT_IMAGE: mlops-train-test-split:${{ github.sha }}
+  TRAINING_IMAGE: mlops-training:${{ github.sha }}
+  TESTING_IMAGE: mlops-testing:${{ github.sha }}
+
 
 jobs:
   build_and_push_components:
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: [self-hosted, linux, x64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,59 +33,68 @@ jobs:
       # --- Data Preparation Component ---
       - name: Build and Push Download Dataset Docker Image
         run: |
-          docker build -f components/download_dataset/Dockerfile -t mlops-download-dataset:${{ github.sha }} .
-          # docker push mlops-download-dataset:${{ github.sha }}
+          docker build -t $DOWNLOAD_DATASET_IMAGE .
+          # docker push $DOWNLOAD_DATASET_IMAGE
+        working-directory: components/download_dataset/
 
       # --- Data Preparation Component ---
       - name: Build and Push Data Preparation Docker Image
         run: |
-          docker build -f components/data_prep/Dockerfile -t mlops-data-preparation:${{ github.sha }} .
-          # docker push mlops-data-preparation:${{ github.sha }}
+          docker build -t $DATA_PREP_IMAGE .
+          # docker push $DATA_PREP_IMAGE
+        working-directory: components/data_prep/
 
       # --- Train Test Split Component ---
       - name: Build and Push Train Test Split Docker Image
         run: |
-          docker build -f components/train_test_split/Dockerfile -t mlops-train-test-split:${{ github.sha }} .
-          # docker push mlops-train-test-split:${{ github.sha }}
+          docker build -t $TRAIN_TEST_SPLIT_IMAGE .
+          # docker push $TRAIN_TEST_SPLIT_IMAGE
+        working-directory: components/train_test_split/
 
       # --- Training Component ---
       - name: Build and Push Training Docker Image
         run: |
-          docker build -f components/training/Dockerfile -t mlops-training:${{ github.sha }} .
-          # docker push mlops-training:${{ github.sha }}
+          docker build -t $TRAINING_IMAGE .
+          # docker push $TRAINING_IMAGE
+        working-directory: components/training/
       
       # --- Testing Component ---
       - name: Build and Push Testing Docker Image
         run: |
-          docker build -f components/testing/Dockerfile -t mlops-testing:${{ github.sha }} .
-          # docker push mlops-testing:${{ github.sha }}
+          docker build -t $TESTING_IMAGE .
+          # docker push $TESTING_IMAGE
+        working-directory: components/testing/
 
+
+  create_kube_resources:
+    needs: build_and_push_components
+    runs-on: [self-hosted, linux, x64]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Create resources
+      run: |
+        kubectl create -f kube/profile.yaml
+        kubectl apply -k kube/
 
   run_pipeline:
-    needs: build_and_push_components
+    needs: create_kube_resources
     runs-on: [self-hosted, linux, x64]
     container: python:3.11.4-slim-buster
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
-    # - name: Set up Docker Buildx
-    #   uses: docker/setup-buildx-action@v3
-    # - name: Create kubernetes resources and run pipeline
-    #   uses: actions/setup-python@v3
-    #   with:
-    #     python-version: 3.11
-
     - name: Install Python dependencies
       run: |
           pip install -r 'requirements.txt'
-    - name: Create Kubernetes resources
-      run: |
-          kubectl apply -k ./kube/
-    - name: Run Pipeline
+    - name: Run Pipeline     
+      env:
+        PIPELINE_NAME: ${{ env.PIPELINE_NAME }}
+        NAMESPACE: ${{ env.NAMESPACE }}
+        EXPERIMENT_NAME: ${{ env.EXPERIMENT_NAME }}
+        USER_NAME: ${{ secrets.USER_NAME }}
+        PASSWORD: ${{ secrets.PASSWORD }}
+
       run: |
           python pipeline.py --commit_sha_tag ${{ github.sha }}
-    - name: Exit Container
-      run: |
-          exit
       

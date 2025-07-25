@@ -5,4 +5,4 @@ metadata:
   namespace: kubechat
 data:
   MLFLOW_TRACKING_URI : http://mlflow-service:80/
-  MLFLOW_EXPERIMENT_NAME: KubeChat
+  EXPERIMENT_NAME: KubeChat

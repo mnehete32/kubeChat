@@ -7,7 +7,7 @@ class DataPreparer:
     def __init__(self, input_artifact_path: str, output_dataset_uri_path: str, experiment_name: str = "kubeChat"):
         self.input_artifact_path = input_artifact_path
         self.output_dataset_uri_path = output_dataset_uri_path
-        self.mlflow_experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME",experiment_name)
+        self.mlflow_experiment_name = os.getenv("EXPERIMENT_NAME",experiment_name)
         self.kf_run_id = os.getenv("KUBEFLOW_RUN_ID", "10000")
         self.df = None
 

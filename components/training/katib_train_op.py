@@ -7,6 +7,7 @@ def create_katib_experiment(
     training_dataset_path: str,
     output_model_dir: str,
     base_yaml_path: str,
+    image: str
 ) -> str:
     """Component to create Katib experiment with pipeline inputs.
     
@@ -47,6 +48,7 @@ def create_katib_experiment(
                 # "--lora_target_modules=${trialParameters.loraTargetModules}",
                 '--test_run',
             ]
+            c["image"] = image
     trial_template['trialSpec']['spec']['template']['spec']['containers'] = containers
     experiment_config['spec']['trialTemplate'] = trial_template
 
