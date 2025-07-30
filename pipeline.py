@@ -35,6 +35,7 @@ class KubeflowOpsHelper:
 
 @component(base_image="python:3.11.4-slim-buster")
 def convert_katib_results(katib_results: str, lora_r: OutputPath(int), lora_dropout: OutputPath(float)): # type: ignore
+    import json
     katib_results = json.loads(katib_results)
     for param in katib_results:
         if param["name"] == "r":
