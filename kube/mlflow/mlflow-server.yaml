@@ -23,7 +23,7 @@ spec:
       serviceAccountName: default-editor
       containers:
       - name: mlflow-server
-        image: python:3.11.4-slim-buster
+        image: kubechat-mlflow:latest
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -32,7 +32,6 @@ spec:
         command: ["sh", "-c"]
         args:
           - |
-            pip install mlflow && \
             mkdir -p /data/mlflowdb/ && \
             mlflow server \
               --host 0.0.0.0 \

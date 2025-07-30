@@ -4,10 +4,9 @@ FROM python:3.11.4-slim-buster
 # Set the working directory in the container
 WORKDIR /app
 
-
 # Install Python dependencies
 RUN pip install --no-cache-dir pyyaml kubernetes kfp kfp-kubernetes
-# Copy the requirements file into the container
-# This assumes requirements.txt is at the project root
-COPY components/training/ .
+
+
+COPY . .
 

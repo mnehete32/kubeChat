@@ -6,7 +6,7 @@ resources:
   - common-config.yaml
   - dex-config.yaml
   - isto-authorization.yaml
-  # - profile.yaml
+  - profile.yaml
   - storage.yaml
   - katib-experiment-watcher-role.yaml
   - katib-experiment-watcher-rolebinding.yaml

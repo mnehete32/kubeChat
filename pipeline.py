@@ -4,7 +4,7 @@ import argparse
 from kfp.dsl import pipeline, component, OutputPath, PipelineTask
 from kfp.components import load_component_from_file
 from kfp import kubernetes
-from components.training.katib_train_op import create_katib_experiment
+from components.hpo.katib_train_op import create_hpo_experiment
 from kfp_client.kfp_client_manager import KFPClientManager
 
 
@@ -13,13 +13,13 @@ class KubeflowOpsHelper:
         self.pvc_name = pvc_name
         self.config_map = config_map
 
-    def apply_common_settings(self, task: PipelineTask, env_var: str):
+    def apply_common_settings(self, task: PipelineTask, IMAGE_NAME_ENV: str):
         kubernetes.mount_pvc(task, pvc_name=self.pvc_name, mount_path='/data/')
         kubernetes.use_config_map_as_env(task, self.config_map, {"MLFLOW_TRACKING_URI": "MLFLOW_TRACKING_URI", "EXPERIMENT_NAME":"EXPERIMENT_NAME"})
         kubernetes.set_image_pull_policy(task, "IfNotPresent")
 
         # Using container with new tag
-        image = os.getenv(env_var)
+        image = os.getenv(IMAGE_NAME_ENV)
         task.set_container_image(image)
 
 
@@ -69,18 +69,22 @@ def kube_chat_pipeline():
     # repeated but required so that, for each commit new experiment will be created for
     # hyperparameter tunning
     base = os.getenv("EXPERIMENT_NAME")
-    COMMIT_SHA = os.getenv("COMMIT_SHA")
+    
+    COMMIT_SHA = os.getenv("GITHUB_SHA")
+    COMMIT_SHA = COMMIT_SHA if len(COMMIT_SHA) <=7 else COMMIT_SHA[:7] # kubeflow allow 40 character to name resource
     katib_experiment_name = f"{base}-{COMMIT_SHA}"
-    katib_task = create_katib_experiment(
+    katib_task = create_hpo_experiment(
         experiment_name=katib_experiment_name,
         namespace=os.getenv("NAMESPACE"),
         training_dataset_path=split_task.outputs["train_artifact_path"],
         output_model_dir="/tmp/model/", # as model directory is not required for next training job
         base_yaml_path="katib.yaml",
+        # for hyperparameter optimization uses  training image
         image=os.getenv("TRAINING_IMAGE")
     )
-    kubernetes.set_image_pull_policy(katib_task, "IfNotPresent")
-    helper.apply_gpu(katib_task, "1")
+    # HPO_IMAGE is used to run hyperparameter optimization job
+    # gpu is added in the function
+    helper.apply_common_settings(katib_task, "HPO_IMAGE")
 
     convert_task = convert_katib_results(katib_results=katib_task.output)
 
@@ -170,4 +174,5 @@ class PipelineExecutor:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create KubeFlow pipeline and run")
     GITHUB_COMMIT_SHA = os.getenv("GITHUB_SHA")
+    GITHUB_COMMIT_SHA = GITHUB_COMMIT_SHA if len(GITHUB_COMMIT_SHA) <=7 else GITHUB_COMMIT_SHA[:7]
     PipelineExecutor().execute()

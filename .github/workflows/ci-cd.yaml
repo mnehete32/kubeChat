@@ -22,6 +22,9 @@ env:
   TRAIN_TEST_SPLIT_IMAGE: kubechat-train-test-split:${{ github.sha }}
   TRAINING_IMAGE: kubechat-training:${{ github.sha }}
   TESTING_IMAGE: kubechat-testing:${{ github.sha }}
+  HPO_IMAGE: kubechat-hpo:${{ github.sha }}
+  MLFLOW_IMAGE: kubechat-mlflow:latest
+
 
 
 jobs:
@@ -55,6 +58,13 @@ jobs:
           # docker push $TRAIN_TEST_SPLIT_IMAGE
         working-directory: components/train_test_split/
 
+      # --- Testing Component ---
+      - name: Build and Push Hyperparamter optimization Docker Image
+        run: |
+          docker build -t $HPO_IMAGE .
+          # docker push $HPO_IMAGE
+        working-directory: components/hpo/
+
       # --- Training Component ---
       - name: Build and Push Training Docker Image
         run: |
@@ -68,6 +78,12 @@ jobs:
           docker build -t $TESTING_IMAGE .
           # docker push $TESTING_IMAGE
         working-directory: components/testing/
+
+      - name: Build and Push MLFLOW Docker Image
+        run: |
+          docker build -t  $MLFLOW_IMAGE .
+          # docker push $MLFLOW_IMAGE
+        working-directory: kube/mlflow/
 
 
   create_kube_resources:
@@ -83,7 +99,6 @@ jobs:
         KUBE_CLUSTER_NAME: ${{ secrets.KUBE_CLUSTER_NAME }}
       run: |
         kubectl config use-context $KUBE_CLUSTER_NAME
-        kubectl create -f kube/profile.yaml
         kubectl apply -k kube/
 
   run_pipeline:
