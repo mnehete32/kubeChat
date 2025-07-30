@@ -3,7 +3,7 @@ name: Component-based Docker Build and Push
 on:
   push:
     branches:
-      - develop
+      - master
 
 
 env:
