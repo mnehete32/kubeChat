@@ -1,8 +1,9 @@
+
 name: Component-based Docker Build and Push
 on:
   push:
     branches:
-      - master
+      - develop
 
 
 env:
@@ -75,29 +76,39 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+    
     - name: Create resources
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+        KUBE_CLUSTER_NAME: ${{ secrets.KUBE_CLUSTER_NAME }}
       run: |
+        kubectl config use-context $KUBE_CLUSTER_NAME
         kubectl create -f kube/profile.yaml
         kubectl apply -k kube/
 
   run_pipeline:
     needs: create_kube_resources
-    runs-on: [self-hosted, linux, x64]
-    container: python:3.11.4-slim-buster
+    runs-on: [self-hosted, linux, x64]      
+    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    - name: Install Python dependencies
-      run: |
-          pip install -r 'requirements.txt'
-    - name: Run Pipeline     
+
+    - name: Setup python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11.4
+        
+    - name: Run pipeline
       env:
-        PIPELINE_NAME: ${{ env.PIPELINE_NAME }}
-        NAMESPACE: ${{ env.NAMESPACE }}
-        EXPERIMENT_NAME: ${{ env.EXPERIMENT_NAME }}
+        PIPELINE_NAME: ${{ vars.PIPELINE_NAME }}
+        NAMESPACE: ${{ vars.NAMESPACE }}
+        EXPERIMENT_NAME: ${{ vars.EXPERIMENT_NAME }}
         USER_NAME: ${{ secrets.USER_NAME }}
         PASSWORD: ${{ secrets.PASSWORD }}
-        KUBEFLOW_API_URL: ${{ env.KUBEFLOW_API_URL }}
+        KUBEFLOW_API_URL: ${{ vars.KUBEFLOW_API_URL }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
-          python pipeline.py --commit_sha_tag ${{ github.sha }}
-      
+        pip install -r 'requirements.txt'
+        python pipeline.py 

@@ -5,8 +5,7 @@ from kfp.dsl import pipeline, component, OutputPath, PipelineTask
 from kfp.components import load_component_from_file
 from kfp import kubernetes
 from components.training.katib_train_op import create_katib_experiment
-from datetime import datetime
-from kfp_client import KFPClientManager
+from kfp_client.kfp_client_manager import KFPClientManager
 
 
 class KubeflowOpsHelper:
@@ -27,7 +26,7 @@ class KubeflowOpsHelper:
     def apply_gpu(self, task: PipelineTask, count: str):
         task.set_accelerator_type("nvidia.com/gpu")
         task.set_gpu_limit(count)
-        kubernetes.add_toleration(task= task, key="nvidia.com/gpu", operator="Exists", effect="NoSchedule")
+        kubernetes.add_toleration(task=task, key="nvidia.com/gpu", operator="Exists", effect="NoSchedule")
 
     @staticmethod
     def load_op(path):
@@ -35,7 +34,7 @@ class KubeflowOpsHelper:
 
 
 @component(base_image="python:3.11.4-slim-buster")
-def convert_katib_results(katib_results: str, lora_r: OutputPath(int), lora_dropout: OutputPath(float)):
+def convert_katib_results(katib_results: str, lora_r: OutputPath(int), lora_dropout: OutputPath(float)): # type: ignore
     katib_results = json.loads(katib_results)
     for param in katib_results:
         if param["name"] == "r":
@@ -63,8 +62,17 @@ def kube_chat_pipeline():
     )
     helper.apply_common_settings(split_task, "TRAIN_TEST_SPLIT_IMAGE")
 
+
+
+    
+    # need to be added, as variable or argparse is not available during compile time.
+    # repeated but required so that, for each commit new experiment will be created for
+    # hyperparameter tunning
+    base = os.getenv("EXPERIMENT_NAME")
+    COMMIT_SHA = os.getenv("COMMIT_SHA")
+    katib_experiment_name = f"{base}-{COMMIT_SHA}"
     katib_task = create_katib_experiment(
-        experiment_name= PipelineExecutor().version_name,
+        experiment_name=katib_experiment_name,
         namespace=os.getenv("NAMESPACE"),
         training_dataset_path=split_task.outputs["train_artifact_path"],
         output_model_dir="/tmp/model/", # as model directory is not required for next training job
@@ -105,7 +113,7 @@ class PipelineExecutor:
         self.pipeline_name = os.getenv("PIPELINE_NAME", "kubeChat-pipeline")
         self.namespace = os.getenv("NAMESPACE")
         self.experiment_name = os.getenv("EXPERIMENT_NAME")
-        self.version_name = f"{self.pipeline_name}-{args.commit_sha_tag}"
+        self.version_name = f"{self.pipeline_name}-{GITHUB_COMMIT_SHA}"
 
     def get_or_create_experiment(self):
 
@@ -161,6 +169,5 @@ class PipelineExecutor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create KubeFlow pipeline and run")
-    parser.add_argument("commit_sha_tag", type = str, default = "latest", required = False)
-    args = parser.parse_args()
+    GITHUB_COMMIT_SHA = os.getenv("GITHUB_SHA")
     PipelineExecutor().execute()

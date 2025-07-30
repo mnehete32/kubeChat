@@ -10,7 +10,7 @@ spec:
     - ReadWriteMany
   storageClassName: hostpath
   hostPath:
-    path: /Users/mnehete32/workspace/kubeChat/kubeChat/data
+    path: "/media/mnehete32/msn_ntfs/llm_projects/kubechat/kubeChat/data/"
     type: Directory
 ---
 apiVersion: v1
@@ -19,6 +19,7 @@ metadata:
   name: shared-pvc
   namespace: kubechat
 spec:
+  storageClassName: hostpath
   accessModes:
     - ReadWriteMany
   resources:

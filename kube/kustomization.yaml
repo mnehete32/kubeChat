@@ -4,9 +4,9 @@ resources:
   - mlflow/mlflow-server.yaml
   - mlflow/mlflow-service.yaml
   - common-config.yaml
-  - kube/dex-config.yaml
+  - dex-config.yaml
   - isto-authorization.yaml
-  - profile.yaml
+  # - profile.yaml
   - storage.yaml
   - katib-experiment-watcher-role.yaml
   - katib-experiment-watcher-rolebinding.yaml
