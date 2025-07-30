@@ -23,6 +23,12 @@ class KubeflowOpsHelper:
         image = os.getenv(env_var)
         task.set_container_image(image)
 
+
+    def apply_gpu(self, task: PipelineTask, count: str):
+        task.set_accelerator_type("nvidia.com/gpu")
+        task.set_gpu_limit(count)
+        kubernetes.add_toleration(task= task, key="nvidia.com/gpu", operator="Exists", effect="NoSchedule")
+
     @staticmethod
     def load_op(path):
         return load_component_from_file(path)
@@ -66,6 +72,7 @@ def kube_chat_pipeline():
         image=os.getenv("TRAINING_IMAGE")
     )
     kubernetes.set_image_pull_policy(katib_task, "IfNotPresent")
+    helper.apply_gpu(katib_task, "1")
 
     convert_task = convert_katib_results(katib_results=katib_task.output)
 
@@ -75,18 +82,20 @@ def kube_chat_pipeline():
         lora_dropout=convert_task.outputs["lora_dropout"]
     )
     helper.apply_common_settings(train_task, "TRAINING_IMAGE")
+    helper.apply_gpu(train_task, "1")
 
     test_task = helper.load_op("components/testing/test.yaml")(
         test_dataset_path=split_task.outputs["test_artifact_path"],
         model_path=train_task.outputs["output_model_dir"]
     )
     helper.apply_common_settings(test_task, "TESTING_IMAGE")
+    helper.apply_gpu(test_task, "1")
 
 
 class PipelineExecutor:
     def __init__(self):
         self.kfp_client_manager = KFPClientManager(
-            api_url="http://kubeflow.nehete.com/pipeline/",
+            api_url=os.getenv("KUBEFLOW_API_URL"),
             skip_tls_verify=True,
             dex_username=os.getenv("USER_NAME"),
             dex_password=os.getenv("PASSWORD"),
