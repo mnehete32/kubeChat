@@ -4,7 +4,7 @@ import argparse
 from kfp.dsl import pipeline, component, OutputPath, PipelineTask
 from kfp.components import load_component_from_file
 from kfp import kubernetes
-from components.hpo.hpo_train_op import create_hpo_experiment
+from components.hpo.hpo import hpo
 from kfp_client.kfp_client_manager import KFPClientManager
 
 
@@ -39,20 +39,6 @@ class KubeflowOpsHelper:
         hpo_exp_name = f"{base}-{COMMIT_SHA}"
         return hpo_exp_name
 
-
-@component(base_image="python:3.11.4-slim-buster")
-def convert_hpo_results(hpo_results: str, lora_r: OutputPath(int), lora_dropout: OutputPath(float)): # type: ignore
-    import json
-    hpo_results = json.loads(hpo_results)
-    for param in hpo_results:
-        if param["name"] == "r":
-            with open(lora_r, "w") as f:
-                f.write(str(param["value"]))
-        elif param["name"] == "dropout":
-            with open(lora_dropout, "w") as f:
-                f.write(str(param["value"]))
-
-
 @pipeline(name="kubeChat-pipeline")
 def kube_chat_pipeline():
     helper = KubeflowOpsHelper()
@@ -69,34 +55,31 @@ def kube_chat_pipeline():
     # repeated but required so that, for each commit new experiment will be created for
     # hyperparameter tunning
 
-    hpo_task = create_hpo_experiment(
+    hpo_task = hpo(
         experiment_name=helper.get_hpo_exp_name(),
         namespace=os.getenv("NAMESPACE"),
-        training_dataset_path=data_prep_task.outputs["train_artifact_path"],
-        output_model_dir="/tmp/model/", # as model directory is not required for next training job
+        train_dataset_path=data_prep_task.outputs["train_artifact_path"],
+        output_model_dir="/tmp/model/", # as model directory is not required for next train job
         base_yaml_path="hpo.yaml",
-        # for hyperparameter optimization uses  training image
-        image=os.getenv("TRAINING_IMAGE")
+        # for hyperparameter optimization uses  train image
+        image=os.getenv("TRAIN_IMAGE")
     )
     # HPO_IMAGE is used to run hyperparameter optimization job
     # gpu is added in the function
     helper.apply_common_settings(hpo_task, "HPO_IMAGE")
 
-    convert_task = convert_hpo_results(hpo_results=hpo_task.output)
-
-    train_task = helper.load_op("components/training/train.yaml")(
-        training_dataset_path=data_prep_task.outputs["train_artifact_path"],
-        lora_r=convert_task.outputs["lora_r"],
-        lora_dropout=convert_task.outputs["lora_dropout"]
+    train_task = helper.load_op("components/train/train.yaml")(
+        train_dataset_path=data_prep_task.outputs["train_artifact_path"],
+        hpo_result=hpo_task.output
     )
-    helper.apply_common_settings(train_task, "TRAINING_IMAGE")
+    helper.apply_common_settings(train_task, "TRAIN_IMAGE")
     helper.apply_gpu(train_task, "1")
 
-    test_task = helper.load_op("components/testing/test.yaml")(
+    test_task = helper.load_op("components/test/test.yaml")(
         test_dataset_path=data_prep_task.outputs["test_artifact_path"],
         model_path=train_task.outputs["output_model_dir"]
     )
-    helper.apply_common_settings(test_task, "TESTING_IMAGE")
+    helper.apply_common_settings(test_task, "TEST_IMAGE")
     helper.apply_gpu(test_task, "1")
 
 

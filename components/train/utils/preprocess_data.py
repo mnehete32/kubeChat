@@ -35,8 +35,8 @@ class DataPreprocessor:
 
     def prepare_datasets(self) -> Tuple["Dataset", "Dataset"]:
         """Loads, splits, and tokenizes the dataset."""
-        logging.info(f"Loading dataset from {self.config.training_dataset_path}")
-        df = pd.read_parquet(self.config.training_dataset_path)
+        logging.info(f"Loading dataset from {self.config.train_dataset_path}")
+        df = pd.read_parquet(self.config.train_dataset_path)
         if self.config.test_run:
             df = df.head(20)
 

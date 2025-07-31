@@ -138,7 +138,7 @@ class FineTuningPipeline:
 
             # 5. Log parameters and save artifacts
             self._log_params()
-            if self.config.training:
+            if self.config.train:
                 self._save_artifacts(model, tokenizer, model_save_dir, run_id)
             
             # Adding print to capture by katib for hyperparameter tunning

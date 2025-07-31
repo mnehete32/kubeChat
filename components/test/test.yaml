@@ -1,4 +1,4 @@
-name: testing-op
+name: test
 description: Download Dataset OP for downloading dataset and saving dataset as artifact in MLflow.
 
 inputs:
@@ -11,7 +11,7 @@ inputs:
 
 implementation:
   container:
-    image: kubechat-testing:latest
+    image: kubechat-test:latest
     command:
       - python
       - test.py

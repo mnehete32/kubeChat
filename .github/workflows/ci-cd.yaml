@@ -19,8 +19,8 @@ env:
   # images
   DOWNLOAD_DATASET_IMAGE: kubechat-download-dataset:${{ github.sha }}
   DATA_PREP_IMAGE: kubechat-data-preparation:${{ github.sha }}
-  TRAINING_IMAGE: kubechat-training:${{ github.sha }}
-  TESTING_IMAGE: kubechat-testing:${{ github.sha }}
+  TRAIN_IMAGE: kubechat-train:${{ github.sha }}
+  TEST_IMAGE: kubechat-test:${{ github.sha }}
   HPO_IMAGE: kubechat-hpo:${{ github.sha }}
   MLFLOW_IMAGE: kubechat-mlflow:latest
 
@@ -57,19 +57,19 @@ jobs:
           # docker push $HPO_IMAGE
         working-directory: components/hpo/
 
-      # --- Training Component ---
-      - name: Build and Push Training Docker Image
+      # --- train Component ---
+      - name: Build and Push Train Docker Image
         run: |
-          docker build -t $TRAINING_IMAGE .
-          # docker push $TRAINING_IMAGE
-        working-directory: components/training/
+          docker build -t $TRAIN_IMAGE .
+          # docker push $TRAIN_IMAGE
+        working-directory: components/train/
       
       # --- Testing Component ---
       - name: Build and Push Testing Docker Image
         run: |
-          docker build -t $TESTING_IMAGE .
-          # docker push $TESTING_IMAGE
-        working-directory: components/testing/
+          docker build -t $TEST_IMAGE .
+          # docker push $TEST_IMAGE
+        working-directory: components/test/
 
       - name: Build and Push MLFLOW Docker Image
         run: |

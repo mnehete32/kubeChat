@@ -1,16 +1,14 @@
-name: training-op
+name: train
 description: Download Dataset OP for downloading dataset and saving dataset as artifact in MLflow.
 
 inputs:
-  - name: training_dataset_path
+  - name: train_dataset_path
     type: String
     description: Dataset Artifact URI
-  - name: lora_r
-    type: Integer
+  - name: hpo_result
+    type: String
     description: 'LoRA rank'
-  - name: lora_dropout
-    type: Float
-    description: 'LoRA dropout rate'
+
 outputs:
   - name: output_model_dir
     type: String
@@ -18,20 +16,18 @@ outputs:
 
 implementation:
   container:
-    image: kubechat-training:latest
+    image: kubechat-train:latest
     command:
       - python
       - train.py
-      - --save_model
+      - --train
       - --test_run
     args:
-      - --training_dataset_path
-      - {inputValue: training_dataset_path}
+      - --train_dataset_path
+      - {inputValue: train_dataset_path}
       - --output_model_dir
       - {outputPath: output_model_dir}
-      - --lora_r
-      - {inputValue: lora_r}
-      - --lora_dropout
-      - {inputValue: lora_dropout}
+      - --hpo_result
+      - {inputValue: hpo_result}
 
       

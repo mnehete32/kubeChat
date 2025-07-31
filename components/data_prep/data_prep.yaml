@@ -1,4 +1,4 @@
-name: data-prep-op
+name: data-prep
 description: Kubeflow component for Data Preparation.
 
 inputs:

@@ -1,10 +1,10 @@
 from kfp.v2.dsl import component
 
 @component
-def create_hpo_experiment(
+def hpo(
     experiment_name: str,
     namespace: str,
-    training_dataset_path: str,
+    train_dataset_path: str,
     output_model_dir: str,
     base_yaml_path: str,
     image: str
@@ -14,7 +14,7 @@ def create_hpo_experiment(
     Args:
         experiment_name: Name for the Katib experiment
         namespace: Kubernetes namespace
-        training_dataset_path: Path to training dataset (from pipeline)
+        train_dataset_path: Path to train dataset (from pipeline)
         output_model_dir: Output directory for models (from pipeline)
         base_yaml_path: Path to base YAML template
     """
@@ -55,13 +55,14 @@ def create_hpo_experiment(
                             "command": [
                                 "python", 
                                 "/app/train.py",
-                                f"--training_dataset_path={training_dataset_path}",
+                                f"--train_dataset_path={train_dataset_path}",
                                 f"--output_model_dir={output_model_dir}",
                                 "--lora_r=${trialParameters.loraR}",
                                 # "--lora_alpha=${trialParameters.loraAlpha}",
                                 "--lora_dropout=${trialParameters.loraDropout}",
                                 # "--lora_target_modules=${trialParameters.loraTargetModules}",
                                 "--test_run",
+                                "--hpo"
                             ],
                             "envFrom": [
                                 {

@@ -1,4 +1,4 @@
-name: download-dataset-op
+name: download-dataset
 description: Download Dataset OP for downloading dataset and saving dataset as artifact in MLflow.
 
 outputs:
