@@ -19,7 +19,6 @@ env:
   # images
   DOWNLOAD_DATASET_IMAGE: kubechat-download-dataset:${{ github.sha }}
   DATA_PREP_IMAGE: kubechat-data-preparation:${{ github.sha }}
-  TRAIN_TEST_SPLIT_IMAGE: kubechat-train-test-split:${{ github.sha }}
   TRAINING_IMAGE: kubechat-training:${{ github.sha }}
   TESTING_IMAGE: kubechat-testing:${{ github.sha }}
   HPO_IMAGE: kubechat-hpo:${{ github.sha }}
@@ -50,13 +49,6 @@ jobs:
           docker build -t $DATA_PREP_IMAGE .
           # docker push $DATA_PREP_IMAGE
         working-directory: components/data_prep/
-
-      # --- Train Test Split Component ---
-      - name: Build and Push Train Test Split Docker Image
-        run: |
-          docker build -t $TRAIN_TEST_SPLIT_IMAGE .
-          # docker push $TRAIN_TEST_SPLIT_IMAGE
-        working-directory: components/train_test_split/
 
       # --- Testing Component ---
       - name: Build and Push Hyperparamter optimization Docker Image

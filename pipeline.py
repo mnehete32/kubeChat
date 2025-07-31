@@ -57,14 +57,6 @@ def kube_chat_pipeline():
         input_artifact_path=download_task.outputs["dataset_artifact_uri"]
     )
     helper.apply_common_settings(data_prep_task, "DATA_PREP_IMAGE")
-
-    split_task = helper.load_op("components/train_test_split/train_test_split.yaml")(
-        input_artifact_path=data_prep_task.outputs["output_dataset_uri_path"]
-    )
-    helper.apply_common_settings(split_task, "TRAIN_TEST_SPLIT_IMAGE")
-
-
-
     
     # need to be added, as variable or argparse is not available during compile time.
     # repeated but required so that, for each commit new experiment will be created for
@@ -77,7 +69,7 @@ def kube_chat_pipeline():
     katib_task = create_hpo_experiment(
         experiment_name=katib_experiment_name,
         namespace=os.getenv("NAMESPACE"),
-        training_dataset_path=split_task.outputs["train_artifact_path"],
+        training_dataset_path=data_prep_task.outputs["train_artifact_path"],
         output_model_dir="/tmp/model/", # as model directory is not required for next training job
         base_yaml_path="katib.yaml",
         # for hyperparameter optimization uses  training image
@@ -90,7 +82,7 @@ def kube_chat_pipeline():
     convert_task = convert_katib_results(katib_results=katib_task.output)
 
     train_task = helper.load_op("components/training/train.yaml")(
-        training_dataset_path=split_task.outputs["train_artifact_path"],
+        training_dataset_path=data_prep_task.outputs["train_artifact_path"],
         lora_r=convert_task.outputs["lora_r"],
         lora_dropout=convert_task.outputs["lora_dropout"]
     )
@@ -98,7 +90,7 @@ def kube_chat_pipeline():
     helper.apply_gpu(train_task, "1")
 
     test_task = helper.load_op("components/testing/test.yaml")(
-        test_dataset_path=split_task.outputs["test_artifact_path"],
+        test_dataset_path=data_prep_task.outputs["test_artifact_path"],
         model_path=train_task.outputs["output_model_dir"]
     )
     helper.apply_common_settings(test_task, "TESTING_IMAGE")

@@ -1,20 +1,29 @@
 import pandas as pd
 import mlflow
 import os
+from train_test_split import TrainTestSplit
 
 
 class DataPreparer:
-    def __init__(self, input_artifact_path: str, output_dataset_uri_path: str, experiment_name: str = "kubeChat"):
+    def __init__(self, 
+                input_artifact_path: str,
+                train_artifact_path: str,
+                test_artifact_path: str,
+                experiment_name: str = "kubeChat"):
         self.input_artifact_path = input_artifact_path
-        self.output_dataset_uri_path = output_dataset_uri_path
+        self.train_artifact_path = train_artifact_path
+        self.test_artifact_path = test_artifact_path
         self.mlflow_experiment_name = os.getenv("EXPERIMENT_NAME",experiment_name)
         self.kf_run_id = os.getenv("KUBEFLOW_RUN_ID", "10000")
         self.df = None
+        self.mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
+        
 
         # Set MLflow tracking URI
-        mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080"))
+        mlflow.set_tracking_uri(self.mlflow_tracking_uri)
         mlflow.set_experiment(self.mlflow_experiment_name)
 
+        self.__call__()
     def load_data(self):
         print(f"Loading raw data from {self.input_artifact_path}...")
         local_path = mlflow.artifacts.download_artifacts(self.input_artifact_path)
@@ -39,49 +48,33 @@ class DataPreparer:
         mlflow.log_param("final_num_rows", self.df.shape[0])
         mlflow.log_param("final_num_columns", self.df.shape[1])
         print(f"Removed {initial_rows - rows_after_dedup} duplicate rows. New row count: {rows_after_dedup}")
+        return self.df
 
-    def save_and_log_data(self):
-        output_dir = "prepared_dataset/"
-        os.makedirs(output_dir, exist_ok=True)
-        dataset_file_name = "dataset.parquet"
-        dataset_path = os.path.join(output_dir, dataset_file_name)
-        self.df.to_parquet(dataset_path, index=False)
-
-        # Log the processed dataset as an MLflow artifact
-        mlflow.log_artifact(dataset_path, dataset_path)
-        print("Processed data logged as MLflow artifact.")
-
-        # Get the artifact URI
-        artifact_uri = mlflow.get_artifact_uri(f"{dataset_path}")
-        print(f"MLflow Artifact URI: {artifact_uri}")
-
-        # Write the artifact URI to output path for Kubeflow downstream consumption
-        with open(self.output_dataset_uri_path, "w") as f:
-            f.write(artifact_uri)
-        print(f"Artifact URI written to {self.output_dataset_uri_path}")
-
-        return artifact_uri
-
-    def run(self):
-        with mlflow.start_run(run_name="Data_Preparation_Phase"):
+    def __call__(self):
+        with mlflow.start_run(run_name="Data_Preparation_Phase") as mlf:
             mlflow.log_param("input_artifact_uri", self.input_artifact_path)
             mlflow.log_param("kubeflow_run_id", self.kf_run_id)
 
             self.load_data()
             self.clean_data()
-            return self.save_and_log_data()
 
-
+            TrainTestSplit(
+                df = self.df,
+                train_artifact_path=self.train_artifact_path,
+                test_artifact_path=self.test_artifact_path,
+                mlflow_tracking_uri=self.mlflow_tracking_uri
+            )
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Prepare and clean dataset for ML pipeline.")
     parser.add_argument("--input_artifact_path", type=str, required=True, help="MLflow URI of the input artifact.")
-    parser.add_argument("--output_dataset_uri_path", type=str, required=True, help="Local path to store output URI.")
+    parser.add_argument("--train_artifact_path", type=str, required=True, help="Output file to store train artifact URI")
+    parser.add_argument("--test_artifact_path", type=str, required=True, help="Output file to store test artifact URI")
     args = parser.parse_args()
 
-    preparer = DataPreparer(
+    DataPreparer(
         input_artifact_path=args.input_artifact_path,
-        output_dataset_uri_path=args.output_dataset_uri_path
+        train_artifact_path=args.train_artifact_path,
+        test_artifact_path=args.test_artifact_path
     )
-    preparer.run()

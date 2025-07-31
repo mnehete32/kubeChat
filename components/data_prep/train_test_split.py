@@ -6,36 +6,29 @@ from typing import Tuple
 from sklearn.model_selection import train_test_split
 
 
-class DataSplitter:
+class TrainTestSplit:
     def __init__(
         self,
-        input_artifact_path: str,
+        df: pd.DataFrame,
         train_artifact_path: str,
         test_artifact_path: str,
         target_col: str = "command_name",
         test_size: float = 0.2,
-        random_state: int = 42,
+        random_state: int = 32,
         mlflow_tracking_uri: str = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080"),
-        experiment_name: str = os.getenv("EXPERIMENT_NAME")
+        experiment_name: str = os.getenv("EXPERIMENT_NAME"),
+
     ):
-        self.input_artifact_path = input_artifact_path
+        self.df = df
         self.train_artifact_path = train_artifact_path
         self.test_artifact_path = test_artifact_path
         self.target_col = target_col
         self.test_size = test_size
         self.random_state = random_state
-        self.mlflow_tracking_uri = mlflow_tracking_uri
         self.experiment_name = experiment_name
-
-        mlflow.set_tracking_uri(self.mlflow_tracking_uri)
-        mlflow.set_experiment(self.experiment_name)
-
-    def load_data(self) -> pd.DataFrame:
-        """Load preprocessed data from MLflow or raise exception"""
-        local_path = mlflow.artifacts.download_artifacts(self.input_artifact_path)
-        df = pd.read_parquet(local_path)
-        print(f"Successfully loaded data from: {local_path}")
-        return df
+        
+        mlflow.set_tracking_uri(mlflow_tracking_uri)
+        self.__call__()
 
     def split_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Split the dataframe into train and test with fallback on stratification error"""
@@ -69,34 +62,30 @@ class DataSplitter:
 
     def log_to_mlflow(self, train_path: str, test_path: str) -> Tuple[str, str]:
         """Log datasets and parameters to MLflow, and return artifact URIs"""
-        with mlflow.start_run(run_name="Train_Test_Split"):
-            mlflow.log_params({
-                "split_ratio": self.test_size,
-                "random_state": self.random_state
-            })
+        
+        mlflow.log_params({
+            "split_ratio": self.test_size,
+            "random_state": self.random_state
+        })
 
-            mlflow.set_tags({
-                "phase": "data_split",
-                "parent_run": "Data_Preparation_Phase"
-            })
 
-            # Define artifact relative paths
-            train_name = os.path.basename(train_path)
-            test_name = os.path.basename(test_path)
-            base_output = "dataset"
-            train_mlflow_artifact_path = os.path.join(base_output, train_name)
-            test_mlflow_artifact_path = os.path.join(base_output, test_name)
-            
-            mlflow.log_artifact(train_path, base_output)
-            mlflow.log_artifact(test_path, base_output)
+        # Define artifact relative paths
+        train_name = os.path.basename(train_path)
+        test_name = os.path.basename(test_path)
+        base_output = "dataset"
+        train_mlflow_artifact_path = os.path.join(base_output, train_name)
+        test_mlflow_artifact_path = os.path.join(base_output, test_name)
+        
+        mlflow.log_artifact(train_path, base_output)
+        mlflow.log_artifact(test_path, base_output)
 
-            train_uri = mlflow.get_artifact_uri(train_mlflow_artifact_path)
-            test_uri = mlflow.get_artifact_uri(test_mlflow_artifact_path)
+        train_uri = mlflow.get_artifact_uri(train_mlflow_artifact_path)
+        test_uri = mlflow.get_artifact_uri(test_mlflow_artifact_path)
 
-            print(f"Train artifact URI: {train_uri}")
-            print(f"Test artifact URI: {test_uri}")
+        print(f"Train artifact URI: {train_uri}")
+        print(f"Test artifact URI: {test_uri}")
 
-            return train_uri, test_uri
+        return train_uri, test_uri
 
     def write_output_paths(self, train_uri: str, test_uri: str):
         """Save the artifact URIs to given output files"""
@@ -106,10 +95,9 @@ class DataSplitter:
             f.write(test_uri)
         print("Artifact URIs written to output files.")
 
-    def run(self):
+    def __call__(self):
         print("Starting data splitting pipeline...")
-        df = self.load_data()
-        train_df, test_df = self.split_data(df)
+        train_df, test_df = self.split_data(self.df)
 
         train_path = "output/train.parquet"
         test_path = "output/test.parquet"
@@ -124,14 +112,15 @@ class DataSplitter:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train-Test Split with MLflow Tracking")
-    parser.add_argument("--input_artifact_path", type=str, required=True, help="MLflow artifact path to input dataset")
+    parser.add_argument("--input_artifact_path", type=str, required=False, help="MLflow artifact path to input dataset")
     parser.add_argument("--train_artifact_path", type=str, required=True, help="Output file to store train artifact URI")
     parser.add_argument("--test_artifact_path", type=str, required=True, help="Output file to store test artifact URI")
     args = parser.parse_args()
+    
+    df = pd.read_parquet(args.input_artifact_path)
 
-    splitter = DataSplitter(
-        input_artifact_path=args.input_artifact_path,
+    TrainTestSplit(
+        df=df,
         train_artifact_path=args.train_artifact_path,
         test_artifact_path=args.test_artifact_path
     )
-    splitter.run()

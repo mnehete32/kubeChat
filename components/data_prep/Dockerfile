@@ -6,6 +6,6 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY data_preparation.py .
+COPY . .
 
 ENTRYPOINT ["python", "data_preparation.py"]

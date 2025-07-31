@@ -7,9 +7,13 @@ inputs:
     description: Path to input CSV file.
 
 outputs:
-  - name: output_dataset_uri_path
+  - name: train_artifact_path
     type: String
-    description: Directory path where EDA output will be saved.
+    description: Train dataset Artifact URI
+
+  - name: test_artifact_path
+    type: String
+    description: Test dataset Artifact URI
 
 implementation:
   container:
@@ -17,7 +21,10 @@ implementation:
     command:
       - python
       - data_preparation.py
+    args:
       - --input_artifact_path
       - {inputValue: input_artifact_path}
-      - --output_dataset_uri_path
-      - {outputPath: output_dataset_uri_path}
+      - --train_artifact_path
+      - {outputPath: train_artifact_path}
+      - --test_artifact_path
+      - {outputPath: test_artifact_path}
