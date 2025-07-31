@@ -91,6 +91,7 @@ jobs:
         KUBE_CLUSTER_NAME: ${{ secrets.KUBE_CLUSTER_NAME }}
       run: |
         kubectl config use-context $KUBE_CLUSTER_NAME
+        kubectl apply -f kube/profile.yaml
         kubectl apply -k kube/
 
   run_pipeline:
