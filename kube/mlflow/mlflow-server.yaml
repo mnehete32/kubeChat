@@ -42,13 +42,13 @@ spec:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 400
+          initialDelaySeconds: 30
           timeoutSeconds: 10
         readinessProbe:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 400
+          initialDelaySeconds: 30
           timeoutSeconds: 10
         ports:
         - containerPort: 8080
