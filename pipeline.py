@@ -4,7 +4,7 @@ import argparse
 from kfp.dsl import pipeline, component, OutputPath, PipelineTask
 from kfp.components import load_component_from_file
 from kfp import kubernetes
-from components.hpo.katib_train_op import create_hpo_experiment
+from components.hpo.hpo_train_op import create_hpo_experiment
 from kfp_client.kfp_client_manager import KFPClientManager
 
 
@@ -22,7 +22,6 @@ class KubeflowOpsHelper:
         image = os.getenv(IMAGE_NAME_ENV)
         task.set_container_image(image)
 
-
     def apply_gpu(self, task: PipelineTask, count: str):
         task.set_accelerator_type("nvidia.com/gpu")
         task.set_gpu_limit(count)
@@ -31,13 +30,21 @@ class KubeflowOpsHelper:
     @staticmethod
     def load_op(path):
         return load_component_from_file(path)
+    
+    @staticmethod
+    def get_hpo_exp_name():
+        base = os.getenv("EXPERIMENT_NAME")
+        COMMIT_SHA = os.getenv("GITHUB_SHA")
+        COMMIT_SHA = COMMIT_SHA if len(COMMIT_SHA) <=7 else COMMIT_SHA[:7] # kubeflow allow 40 character to name resource
+        hpo_exp_name = f"{base}-{COMMIT_SHA}"
+        return hpo_exp_name
 
 
 @component(base_image="python:3.11.4-slim-buster")
-def convert_katib_results(katib_results: str, lora_r: OutputPath(int), lora_dropout: OutputPath(float)): # type: ignore
+def convert_hpo_results(hpo_results: str, lora_r: OutputPath(int), lora_dropout: OutputPath(float)): # type: ignore
     import json
-    katib_results = json.loads(katib_results)
-    for param in katib_results:
+    hpo_results = json.loads(hpo_results)
+    for param in hpo_results:
         if param["name"] == "r":
             with open(lora_r, "w") as f:
                 f.write(str(param["value"]))
@@ -61,25 +68,21 @@ def kube_chat_pipeline():
     # need to be added, as variable or argparse is not available during compile time.
     # repeated but required so that, for each commit new experiment will be created for
     # hyperparameter tunning
-    base = os.getenv("EXPERIMENT_NAME")
-    
-    COMMIT_SHA = os.getenv("GITHUB_SHA")
-    COMMIT_SHA = COMMIT_SHA if len(COMMIT_SHA) <=7 else COMMIT_SHA[:7] # kubeflow allow 40 character to name resource
-    katib_experiment_name = f"{base}-{COMMIT_SHA}"
-    katib_task = create_hpo_experiment(
-        experiment_name=katib_experiment_name,
+
+    hpo_task = create_hpo_experiment(
+        experiment_name=helper.get_hpo_exp_name(),
         namespace=os.getenv("NAMESPACE"),
         training_dataset_path=data_prep_task.outputs["train_artifact_path"],
         output_model_dir="/tmp/model/", # as model directory is not required for next training job
-        base_yaml_path="katib.yaml",
+        base_yaml_path="hpo.yaml",
         # for hyperparameter optimization uses  training image
         image=os.getenv("TRAINING_IMAGE")
     )
     # HPO_IMAGE is used to run hyperparameter optimization job
     # gpu is added in the function
-    helper.apply_common_settings(katib_task, "HPO_IMAGE")
+    helper.apply_common_settings(hpo_task, "HPO_IMAGE")
 
-    convert_task = convert_katib_results(katib_results=katib_task.output)
+    convert_task = convert_hpo_results(hpo_results=hpo_task.output)
 
     train_task = helper.load_op("components/training/train.yaml")(
         training_dataset_path=data_prep_task.outputs["train_artifact_path"],

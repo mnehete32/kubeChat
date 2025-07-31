@@ -22,8 +22,9 @@ spec:
     - name: r
       parameterType: int
       feasibleSpace:
-        min: "4"
-        max: "8"
+        min: "16"
+        max: "64"
+        step: "32"
     # - name: alpha
     #   parameterType: int
     #   feasibleSpace:
